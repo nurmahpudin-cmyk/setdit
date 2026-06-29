@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head><title>Login Test</title></head>
+<body>
+<h2>Direct Login Test</h2>
+<form id="loginForm">
+  <input type="text" id="login" placeholder="Email/Username" value="admin@setdit.local"><br><br>
+  <input type="password" id="password" placeholder="Password" value="Admin123!"><br><br>
+  <button type="submit">Login</button>
+</form>
+<pre id="result"></pre>
+<script>
+document.getElementById('loginForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const login = document.getElementById('login').value;
+  const password = document.getElementById('password').value;
+
+  try {
+    const res = await fetch('http://localhost:5000/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ login, password })
+    });
+    const data = await res.json();
+    document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+  } catch (err) {
+    document.getElementById('result').textContent = 'Error: ' + err.message;
+  }
+};
+</script>
+</body>
+</html>

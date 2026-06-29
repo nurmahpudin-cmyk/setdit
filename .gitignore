@@ -1,0 +1,7 @@
+backend/node_modules/*
+backend/.wwebjs_auth/*
+backend/.wwebjs_cache/*
+backend/.env
+frontend/node_modules/*
+backend/add_menus.sql
+frontend/dist/*

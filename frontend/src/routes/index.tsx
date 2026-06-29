@@ -1,0 +1,67 @@
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { PrivateRoute } from './PrivateRoute.tsx';
+import { PublicRoute } from './PublicRoute.tsx';
+import LoginPage from '../pages/auth/LoginPage.tsx';
+import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage.tsx';
+import DashboardPage from '../pages/dashboard/DashboardPage.tsx';
+import UsersPage from '../pages/admin/UsersPage.tsx';
+import RolesPage from '../pages/admin/RolesPage.tsx';
+import PermissionsPage from '../pages/admin/PermissionsPage.tsx';
+import PositionsPage from '../pages/admin/PositionsPage.tsx';
+import UnitsPage from '../pages/admin/UnitsPage.tsx';
+import SettingsPage from '../pages/admin/SettingsPage.tsx';
+import ActivityLogsPage from '../pages/admin/ActivityLogsPage.tsx';
+import MenuPage from '../pages/admin/MenuPage.tsx';
+import WhatsAppPage from '../pages/admin/WhatsAppPage.tsx';
+import JadwalPimpinanPage from '../pages/jadwal/JadwalPimpinanPage.tsx';
+import PegawaiPage from '../pages/pegawai/PegawaiPage.tsx';
+import AppLayout from '../pages/layout/AppLayout.tsx';
+
+export function AppRoutes() {
+  return (
+    <Routes>
+      {/* Public routes */}
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <LoginPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/forgot-password"
+        element={
+          <PublicRoute>
+            <ForgotPasswordPage />
+          </PublicRoute>
+        }
+      />
+
+      {/* Protected routes */}
+      <Route
+        element={
+          <PrivateRoute>
+            <AppLayout />
+          </PrivateRoute>
+        }
+      >
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/users" element={<UsersPage />} />
+        <Route path="/roles" element={<RolesPage />} />
+        <Route path="/permissions" element={<PermissionsPage />} />
+        <Route path="/positions" element={<PositionsPage />} />
+        <Route path="/units" element={<UnitsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/logs" element={<ActivityLogsPage />} />
+        <Route path="/menus" element={<MenuPage />} />
+        <Route path="/whatsapp" element={<WhatsAppPage />} />
+        <Route path="/jadwal-pimpinan" element={<JadwalPimpinanPage />} />
+        <Route path="/pegawai" element={<PegawaiPage />} />
+      </Route>
+
+      {/* Default redirect */}
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+    </Routes>
+  );
+}

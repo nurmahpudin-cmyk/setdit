@@ -1,0 +1,385 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Master Tables
+// ============================================
+
+model mst_settings {
+  id           Int      @id @default(autoincrement())
+  app_name     String   @default("SETDIT")
+  app_fullname String   @default("Sistem Terpadu")
+  tagline      String   @default("")
+  description  String   @default("")
+  logo         String   @default("")
+  logo_initial String   @default("")
+  email        String   @default("")
+  phone        String   @default("")
+  address      String   @default("")
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  @@map("mst_settings")
+}
+
+model mst_users {
+  id           Int         @id @default(autoincrement())
+  fullname     String
+  username     String      @unique
+  email        String      @unique
+  phone        String      @unique
+  password     String
+  status       user_status @default(PENDING)
+  is_verified  Boolean     @default(false)
+  position_id  Int?
+  unit_id      Int?
+  failed_login Int         @default(0)
+  locked_until DateTime?
+  created_at   DateTime    @default(now())
+  updated_at   DateTime    @updatedAt
+  deleted_at   DateTime?
+
+  position     mst_positions?        @relation(fields: [position_id], references: [id])
+  unit         mst_units?            @relation(fields: [unit_id], references: [id])
+  roles        tr_user_roles[]
+  permissions  tr_user_permissions[]
+  approvals    tr_user_approval[]    @relation("Approver")
+  approved     tr_user_approval[]    @relation("UserApproved")
+  otps         tr_otp[]
+  activityLogs activity_logs[]
+  wa_logs      wa_logs[]
+  jadwal_created tr_jadwal_pimpinan[]
+
+  @@map("mst_users")
+}
+
+enum user_status {
+  PENDING
+  VERIFIED
+  ACTIVE
+  INACTIVE
+  REJECTED
+}
+
+model mst_positions {
+  id         Int      @id @default(autoincrement())
+  name       String   @unique
+  code       String   @unique
+  role_id    Int?
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  role  mst_roles?  @relation(fields: [role_id], references: [id])
+  users mst_users[]
+
+  @@map("mst_positions")
+}
+
+model mst_units {
+  id         Int      @id @default(autoincrement())
+  name       String   @unique
+  code       String   @unique
+  parent_id  Int?
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  parent   mst_units?  @relation("UnitHierarchy", fields: [parent_id], references: [id])
+  children mst_units[] @relation("UnitHierarchy")
+  users    mst_users[]
+
+  @@map("mst_units")
+}
+
+model tr_menu_permissions {
+  menu_id       Int
+  permission_id Int
+  created_at    DateTime @default(now())
+
+  menu       mst_menus       @relation(fields: [menu_id], references: [id], onDelete: Cascade)
+  permission mst_permissions @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+
+  @@id([menu_id, permission_id])
+  @@map("tr_menu_permissions")
+}
+
+model mst_menus {
+  id         Int      @id @default(autoincrement())
+  name       String
+  path       String   @default("")
+  module     String   @default("admin")
+  icon       String   @default("")
+  order_num  Int      @default(0)
+  parent_id  Int?
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  parent      mst_menus?            @relation("MenuHierarchy", fields: [parent_id], references: [id])
+  children    mst_menus[]           @relation("MenuHierarchy")
+  permissions tr_menu_permissions[]
+
+  @@map("mst_menus")
+}
+
+model mst_roles {
+  id             Int      @id @default(autoincrement())
+  name           String   @unique
+  code           String   @unique
+  description    String   @default("")
+  is_active      Boolean  @default(true)
+  is_super_admin Boolean  @default(false)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  users       tr_user_roles[]
+  permissions tr_role_permissions[]
+  positions   mst_positions[]
+
+  @@map("mst_roles")
+}
+
+model mst_permissions {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  code        String   @unique
+  module      String
+  action      String
+  description String   @default("")
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  role_permissions tr_role_permissions[]
+  user_permissions tr_user_permissions[]
+  menu_permissions tr_menu_permissions[]
+
+  @@map("mst_permissions")
+}
+
+// ============================================
+// Transaction Tables
+// ============================================
+
+model tr_user_roles {
+  user_id    Int
+  role_id    Int
+  created_at DateTime @default(now())
+
+  user mst_users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  role mst_roles @relation(fields: [role_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, role_id])
+  @@map("tr_user_roles")
+}
+
+model tr_role_permissions {
+  role_id       Int
+  permission_id Int
+  created_at    DateTime @default(now())
+
+  role       mst_roles       @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  permission mst_permissions @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+
+  @@id([role_id, permission_id])
+  @@map("tr_role_permissions")
+}
+
+model tr_user_permissions {
+  user_id       Int
+  permission_id Int
+  created_at    DateTime @default(now())
+
+  user       mst_users       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  permission mst_permissions @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+
+  @@id([user_id, permission_id])
+  @@map("tr_user_permissions")
+}
+
+model tr_otp {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  code       String
+  type       otp_type
+  expires_at DateTime
+  is_used    Boolean  @default(false)
+  attempts   Int      @default(0)
+  created_at DateTime @default(now())
+
+  user mst_users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("tr_otp")
+}
+
+enum otp_type {
+  REGISTRATION
+  FORGOT_PASSWORD
+  LOGIN
+}
+
+model tr_user_approval {
+  id          Int             @id @default(autoincrement())
+  user_id     Int
+  action      approval_action
+  status      approval_status @default(PENDING)
+  notes       String?
+  approver_id Int?
+  created_at  DateTime        @default(now())
+  updated_at  DateTime        @updatedAt
+
+  user     mst_users  @relation("UserApproved", fields: [user_id], references: [id], onDelete: Cascade)
+  approver mst_users? @relation("Approver", fields: [approver_id], references: [id])
+
+  @@map("tr_user_approval")
+}
+
+enum approval_action {
+  REGISTER
+  ACTIVATE
+  DEACTIVATE
+  REJECT
+}
+
+enum approval_status {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ============================================
+// WhatsApp Tables
+// ============================================
+
+model wa_sessions {
+  id         Int       @id @default(autoincrement())
+  name       String    @unique
+  is_active  Boolean   @default(false)
+  qr_code    String?
+  last_seen  DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  logs wa_logs[]
+
+  @@map("wa_sessions")
+}
+
+model wa_logs {
+  id         Int       @id @default(autoincrement())
+  session_id Int?
+  phone      String
+  message    String
+  status     wa_status
+  error      String?
+  created_by Int?
+  created_at DateTime  @default(now())
+
+  session wa_sessions? @relation(fields: [session_id], references: [id])
+  creator mst_users?   @relation(fields: [created_by], references: [id])
+
+  @@map("wa_logs")
+}
+
+enum wa_status {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+// ============================================
+// Pegawai Tables (relasi ke jadwal pimpinan)
+// ============================================
+
+model mst_pegawai {
+  id             Int       @id @default(autoincrement())
+  nama_lengkap   String
+  nama_panggilan String?
+  nip            String    @unique
+  nomor_wa       String?
+  is_active      Boolean   @default(true)
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  jadwal_pendamping tr_jadwal_pendamping_pegawai[]
+
+  @@map("mst_pegawai")
+}
+
+// ============================================
+// Jadwal Pimpinan Tables
+// ============================================
+
+model tr_jadwal_pimpinan {
+  id              Int       @id @default(autoincrement())
+  acara          String
+  lokasi         String
+  sebagai        String
+  tanggal_awal   DateTime
+  tanggal_akhir  DateTime
+  is_notified    Boolean   @default(false)
+  notified_at    DateTime?
+  created_by     Int?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  creator            mst_users?                    @relation(fields: [created_by], references: [id])
+  pendamping_pegawai  tr_jadwal_pendamping_pegawai[]
+  pendamping_direktur tr_jadwal_pendamping_direktur[]
+
+  @@map("tr_jadwal_pimpinan")
+}
+
+model tr_jadwal_pendamping_pegawai {
+  id              Int    @id @default(autoincrement())
+  jadwal_id       Int
+  pegawai_id     Int
+
+  jadwal tr_jadwal_pimpinan @relation(fields: [jadwal_id], references: [id], onDelete: Cascade)
+  pegawai mst_pegawai       @relation(fields: [pegawai_id], references: [id])
+
+  @@map("tr_jadwal_pendamping_pegawai")
+}
+
+model tr_jadwal_pendamping_direktur {
+  id              Int    @id @default(autoincrement())
+  jadwal_id       Int
+  kode_direktur   String // PKPS, PKTHA, PUPS, PPS
+  nama_direktur   String
+
+  jadwal tr_jadwal_pimpinan @relation(fields: [jadwal_id], references: [id], onDelete: Cascade)
+
+  @@map("tr_jadwal_pendamping_direktur")
+}
+
+// ============================================
+// Audit Tables
+// ============================================
+
+model activity_logs {
+  id         Int      @id @default(autoincrement())
+  user_id    Int?
+  module     String
+  action     String
+  old_data   Json?
+  new_data   Json?
+  ip_address String?
+  user_agent String?
+  created_at DateTime @default(now())
+
+  user mst_users? @relation(fields: [user_id], references: [id])
+
+  @@map("activity_logs")
+}
