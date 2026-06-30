@@ -17,17 +17,20 @@ import {
   InputNumber,
   Row,
   Col,
+  Grid,
+  Dropdown,
+  Typography,
+  Divider as AntDivider,
+  Empty,
 } from 'antd';
 import {
   PlusOutlined,
-  EditOutlined,
-  SendOutlined,
   CheckOutlined,
   CloseOutlined,
   SearchOutlined,
-  EyeOutlined,
   WarningOutlined,
   FileTextOutlined,
+  MoreOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -37,6 +40,8 @@ import { kabkotaApi, Kabkota } from '../../api/kabkota';
 import { skemaApi, Skema } from '../../api/skema';
 import { externalApi, KelompokPS } from '../../api/external';
 import { useAppSelector } from '../../hooks/useRedux';
+
+const { useBreakpoint } = Grid;
 
 const { TextArea } = Input;
 
@@ -61,6 +66,7 @@ const WORKFLOW_STEPS = [
 
 export default function SkPerhutananPage() {
   const { user } = useAppSelector((state) => state.auth);
+  const screens = useBreakpoint();
   const [data, setData] = useState<SKPerhutanan[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -125,7 +131,7 @@ export default function SkPerhutananPage() {
         unit_pengusul: unitFilter,
       });
       if (signal?.aborted) return;
-      setData(res.data.items);
+      setData(res.data.data);
       setPagination((prev) => ({ ...prev, total: res.data.pagination.total }));
     } catch (error: any) {
       if (error.name === 'CanceledError' || error?.response?.status === 0) return;
@@ -189,6 +195,7 @@ export default function SkPerhutananPage() {
         skema: values.skema ? String(values.skema) : undefined,
         tanggal_terima: values.tanggal_terima.format('YYYY-MM-DD'),
         tanggal_surat: values.tanggal_surat?.format('YYYY-MM-DD'),
+        kelompok_ps: Array.isArray(values.kelompok_ps) ? values.kelompok_ps[values.kelompok_ps.length - 1] : values.kelompok_ps,
       };
       delete submitData.konseptor;
 
@@ -278,7 +285,7 @@ export default function SkPerhutananPage() {
     {
       title: 'No',
       key: 'no',
-      width: 60,
+      width: screens.xs ? 50 : 60,
       render: (_, __, index) => (pagination.page - 1) * pagination.limit + index + 1,
     },
     {
@@ -286,6 +293,7 @@ export default function SkPerhutananPage() {
       dataIndex: 'nomor_surat',
       key: 'nomor_surat',
       render: (text) => text || '-',
+      responsive: ['md'],
     },
     {
       title: 'Perihal',
@@ -298,12 +306,13 @@ export default function SkPerhutananPage() {
       dataIndex: 'unit_pengusul',
       key: 'unit_pengusul',
       width: 100,
+      responsive: ['sm'],
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 130,
+      width: screens.xs ? 100 : 130,
       render: (status) => (
         <Tag color={getStatusColor(status)}>{getStatusText(status)}</Tag>
       ),
@@ -312,52 +321,46 @@ export default function SkPerhutananPage() {
       title: 'Tahap',
       dataIndex: 'current_step',
       key: 'current_step',
-      width: 80,
+      width: 60,
+      responsive: ['md'],
       render: (step) => `${step}/15`,
     },
     {
       title: 'Deadline',
       dataIndex: 'tanggal_deadline',
       key: 'tanggal_deadline',
-      width: 110,
+      width: screens.xs ? 90 : 110,
+      responsive: ['lg'],
       render: (deadline, record) => (
-        <Space>
+        <Space size={4}>
           {isOverdue(deadline, record.status) && (
             <WarningOutlined style={{ color: '#ff4d4f' }} />
           )}
-          {dayjs(deadline).format('DD/MM/YYYY')}
+          {dayjs(deadline).format('DD/MM/YY')}
         </Space>
       ),
     },
     {
       title: 'Aksi',
       key: 'action',
-      width: 180,
-      render: (_, record) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<EyeOutlined />}
-            onClick={() => handleView(record)}
-          >
-            Detail
-          </Button>
-          {record.status === 'DRAFT' && (
-            <>
-              <Button
-                type="link"
-                icon={<EditOutlined />}
-                onClick={() => handleEdit(record)}
-              />
-              <Button
-                type="link"
-                icon={<SendOutlined />}
-                onClick={() => handleSubmitWorkflow(record)}
-              />
-            </>
-          )}
-        </Space>
-      ),
+      width: screens.xs ? 100 : 180,
+      fixed: screens.xs ? 'right' : undefined,
+      render: (_, record) => {
+        const items: { key: string; label: string; onClick: () => void }[] = [
+          { key: 'view', label: 'Detail', onClick: () => handleView(record) },
+        ];
+        if (record.status === 'DRAFT') {
+          items.push(
+            { key: 'edit', label: 'Edit', onClick: () => handleEdit(record) },
+            { key: 'submit', label: 'Submit', onClick: () => handleSubmitWorkflow(record) }
+          );
+        }
+        return (
+          <Dropdown menu={{ items }} trigger={['click']}>
+            <Button size="small" icon={<MoreOutlined />}>Aksi</Button>
+          </Dropdown>
+        );
+      },
     },
   ];
 
@@ -366,57 +369,59 @@ export default function SkPerhutananPage() {
       <Card
         title="SK Perhutanan Sosial"
         extra={
-          <Space>
-            <Select
-              placeholder="Filter Status"
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+            Input SK Baru
+          </Button>
+        }
+      >
+        <Row gutter={[8, 8]} style={{ marginBottom: 16 }}>
+          <Col xs={24} sm={12} md={8}>
+            <Input
+              placeholder="Cari..."
+              prefix={<SearchOutlined />}
+              value={searchText}
+              onChange={(e) => {
+                setSearchText(e.target.value);
+                setPagination({ ...pagination, page: 1 });
+              }}
+              onPressEnter={() => fetchData()}
               allowClear
-              style={{ width: 150 }}
+            />
+          </Col>
+          <Col xs={12} sm={6} md={4}>
+            <Select
+              placeholder="Status"
+              allowClear
+              style={{ width: '100%' }}
               onChange={(val) => setStatusFilter(val)}
               options={[
                 { label: 'Draft', value: 'DRAFT' },
-                { label: 'Dalam Proses', value: 'IN_PROGRESS' },
-                { label: 'Menunggu Revisi', value: 'WAITING_REVISION' },
+                { label: 'Proses', value: 'IN_PROGRESS' },
+                { label: 'Revisi', value: 'WAITING_REVISION' },
                 { label: 'Selesai', value: 'COMPLETED' },
               ]}
             />
+          </Col>
+          <Col xs={12} sm={6} md={4}>
             <Select
-              placeholder="Filter Unit"
+              placeholder="Unit"
               allowClear
-              style={{ width: 120 }}
+              style={{ width: '100%' }}
               onChange={(val) => setUnitFilter(val)}
               options={[
                 { label: 'PKPS', value: 'PKPS' },
                 { label: 'PKTHA', value: 'PKTHA' },
               ]}
             />
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-              Input SK Baru
-            </Button>
-          </Space>
-        }
-      >
-        <div style={{ marginBottom: 16 }}>
-          <Input
-            placeholder="Cari nomor surat, nomor SK, atau perihal..."
-            prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e) => {
-              setSearchText(e.target.value);
-              setPagination({ ...pagination, page: 1 });
-            }}
-            onPressEnter={fetchData}
-            style={{ width: 350 }}
-          />
-          <Button style={{ marginLeft: 8 }} onClick={fetchData}>
-            Cari
-          </Button>
-        </div>
+          </Col>
+        </Row>
 
         <Table
           columns={columns}
           dataSource={data}
           rowKey="id"
           loading={loading}
+          scroll={{ x: 600 }}
           pagination={{
             current: pagination.page,
             pageSize: pagination.limit,
@@ -436,14 +441,15 @@ export default function SkPerhutananPage() {
         onCancel={() => setModalVisible(false)}
         okText="Simpan"
         cancelText="Batal"
-        width={800}
+        width={screens.md ? 800 : '95%'}
+        styles={{ body: { maxHeight: '70vh', overflow: 'auto' } }}
       >
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Divider />
           <Title level={5}>Data Lokasi</Title>
 
-          <Row gutter={16}>
-            <Col span={8}>
+          <Row gutter={[16, 0]}>
+            <Col xs={24} sm={8}>
               <Form.Item name="provinsi" label="Provinsi">
                 <Select
                   allowClear showSearch optionFilterProp="label"
@@ -458,7 +464,7 @@ export default function SkPerhutananPage() {
                 />
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col xs={24} sm={8}>
               <Form.Item name="kabupaten" label="Kabupaten">
                 <Select
                   allowClear showSearch optionFilterProp="label"
@@ -468,7 +474,7 @@ export default function SkPerhutananPage() {
                 />
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col xs={24} sm={8}>
               <Form.Item name="skema" label="Skema">
                 <Select
                   allowClear showSearch optionFilterProp="label"
@@ -486,8 +492,8 @@ export default function SkPerhutananPage() {
             </Col>
           </Row>
 
-          <Row gutter={16}>
-            <Col span={12}>
+          <Row gutter={[16, 0]}>
+            <Col xs={24} sm={12}>
               <Form.Item
                 name="kelompok_ps"
                 label="Kelompok PS"
@@ -519,25 +525,25 @@ export default function SkPerhutananPage() {
                 />
               </Form.Item>
             </Col>
-            <Col span={6}>
+            <Col xs={12} sm={6}>
               <Form.Item name="kecamatan" label="Kecamatan">
                 <Input placeholder="Kecamatan" />
               </Form.Item>
             </Col>
-            <Col span={6}>
+            <Col xs={12} sm={6}>
               <Form.Item name="desa" label="Desa">
                 <Input placeholder="Desa" />
               </Form.Item>
             </Col>
           </Row>
 
-          <Row gutter={16}>
-            <Col span={8}>
+          <Row gutter={[16, 0]}>
+            <Col xs={12} sm={8}>
               <Form.Item name="luas" label="Luas (Ha)">
                 <InputNumber style={{ width: '100%' }} placeholder="Luas" />
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col xs={12} sm={8}>
               <Form.Item name="jml_kk" label="Jumlah KK">
                 <InputNumber style={{ width: '100%' }} placeholder="Jumlah KK" />
               </Form.Item>
@@ -546,19 +552,19 @@ export default function SkPerhutananPage() {
 
           <Divider />
           <Title level={5}>Data Surat</Title>
-          
-          <Row gutter={16}>
-            <Col span={8}>
+
+          <Row gutter={[16, 0]}>
+            <Col xs={24} sm={8}>
               <Form.Item name="nomor_surat" label="Nomor ND">
                 <Input placeholder="Contoh: 123/ABC/2024" />
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col xs={24} sm={8}>
               <Form.Item name="tanggal_surat" label="Tanggal ND">
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col xs={24} sm={8}>
               <Form.Item
                 name="tanggal_terima"
                 label="Tanggal Terima"
@@ -568,9 +574,9 @@ export default function SkPerhutananPage() {
               </Form.Item>
             </Col>
           </Row>
-          
-          <Row gutter={16}>
-            <Col span={8}>
+
+          <Row gutter={[16, 0]}>
+            <Col xs={24} sm={8}>
               <Form.Item
                 name="unit_pengusul"
                 label="Unit Pengusul"
@@ -584,12 +590,12 @@ export default function SkPerhutananPage() {
                 />
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col xs={24} sm={8}>
               <Form.Item name="penandatangan" label="Penandatangan">
                 <Input placeholder="Dirjen PS" />
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col xs={24} sm={8}>
               <Form.Item name="konseptor" label="Konseptor">
                 <Input placeholder="Nama Konseptor" />
               </Form.Item>
@@ -651,70 +657,161 @@ export default function SkPerhutananPage() {
                 label: 'Informasi',
                 children: (
                   <div>
-                    <Row gutter={[16, 16]}>
-                      <Col span={12}>
-                        <b>Nomor Surat:</b> {selectedSK.nomor_surat || '-'}
+                    {/* Data Lokasi */}
+                    <Title level={5} style={{ marginBottom: 12 }}>Data Lokasi</Title>
+                    <Row gutter={[16, 8]}>
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Provinsi:</Text>
+                        <div>{selectedSK.provinsi || '-'}</div>
                       </Col>
-                      <Col span={12}>
-                        <b>Nomor SK:</b> {selectedSK.nomor_sk || '-'}
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Kabupaten/Kota:</Text>
+                        <div>{selectedSK.kabupaten || '-'}</div>
                       </Col>
-                      <Col span={12}>
-                        <b>Tanggal Surat:</b>{' '}
-                        {selectedSK.tanggal_surat
-                          ? dayjs(selectedSK.tanggal_surat).format('DD/MM/YYYY')
-                          : '-'}
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Kecamatan:</Text>
+                        <div>{selectedSK.kecamatan || '-'}</div>
                       </Col>
-                      <Col span={12}>
-                        <b>Tanggal SK:</b>{' '}
-                        {selectedSK.tanggal_sk
-                          ? dayjs(selectedSK.tanggal_sk).format('DD/MM/YYYY')
-                          : '-'}
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Desa:</Text>
+                        <div>{selectedSK.desa || '-'}</div>
                       </Col>
-                      <Col span={12}>
-                        <b>Unit Pengusul:</b> {selectedSK.unit_pengusul}
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Skema:</Text>
+                        <div>{selectedSK.skema || '-'}</div>
                       </Col>
-                      <Col span={12}>
-                        <b>Status:</b>{' '}
-                        <Tag color={getStatusColor(selectedSK.status)}>
-                          {getStatusText(selectedSK.status)}
-                        </Tag>
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Kelompok PS:</Text>
+                        <div>{selectedSK.kelompok_ps || '-'}</div>
                       </Col>
-                      <Col span={24}>
-                        <b>Perihal:</b> {selectedSK.perihal}
+                      <Col xs={24} sm={8}>
+                        <Text type="secondary">Luas (Ha):</Text>
+                        <div>{selectedSK.luas ? `${selectedSK.luas} Ha` : '-'}</div>
                       </Col>
-                      <Col span={24}>
-                        <b>Tujuan Surat:</b> {selectedSK.tujuan_surat}
+                      <Col xs={24} sm={8}>
+                        <Text type="secondary">Jumlah KK:</Text>
+                        <div>{selectedSK.jml_kk || '-'}</div>
                       </Col>
-                      <Col span={12}>
-                        <b>Tanggal Terima:</b>{' '}
-                        {dayjs(selectedSK.tanggal_terima).format('DD/MM/YYYY')}
+                    </Row>
+
+                    <Divider />
+
+                    {/* Data Surat */}
+                    <Title level={5} style={{ marginBottom: 12 }}>Data Surat</Title>
+                    <Row gutter={[16, 8]}>
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Nomor Surat/ND:</Text>
+                        <div>{selectedSK.nomor_surat || '-'}</div>
                       </Col>
-                      <Col span={12}>
-                        <b>Deadline:</b>{' '}
-                        <Space>
-                          {dayjs(selectedSK.tanggal_deadline).format('DD/MM/YYYY')}
-                          {isOverdue(selectedSK.tanggal_deadline, selectedSK.status) && (
-                            <Tag color="error">LEWAT</Tag>
-                          )}
-                        </Space>
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Tanggal Surat/ND:</Text>
+                        <div>{selectedSK.tanggal_surat ? dayjs(selectedSK.tanggal_surat).format('DD/MM/YYYY') : '-'}</div>
                       </Col>
-                      <Col span={12}>
-                        <b>Konseptor:</b> {selectedSK.creator?.fullname || '-'}
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Unit Pengusul:</Text>
+                        <div>{selectedSK.unit_pengusul}</div>
+                      </Col>
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Tanggal Terima:</Text>
+                        <div>{dayjs(selectedSK.tanggal_terima).format('DD/MM/YYYY')}</div>
+                      </Col>
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Deadline:</Text>
+                        <div>
+                          <Space>
+                            {dayjs(selectedSK.tanggal_deadline).format('DD/MM/YYYY')}
+                            {isOverdue(selectedSK.tanggal_deadline, selectedSK.status) && (
+                              <Tag color="error">LEWAT DEADLINE</Tag>
+                            )}
+                          </Space>
+                        </div>
+                      </Col>
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Status:</Text>
+                        <div>
+                          <Tag color={getStatusColor(selectedSK.status)}>
+                            {getStatusText(selectedSK.status)}
+                          </Tag>
+                          <span style={{ marginLeft: 8 }}>Tahap {selectedSK.current_step}/15</span>
+                        </div>
+                      </Col>
+                      <Col xs={24}>
+                        <Text type="secondary">Perihal:</Text>
+                        <div>{selectedSK.perihal}</div>
+                      </Col>
+                      <Col xs={24}>
+                        <Text type="secondary">Tujuan Surat:</Text>
+                        <div>{selectedSK.tujuan_surat || '-'}</div>
+                      </Col>
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Penandatangan:</Text>
+                        <div>{selectedSK.penandatangan || '-'}</div>
+                      </Col>
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Konseptor:</Text>
+                        <div>{selectedSK.creator?.fullname || '-'}</div>
                       </Col>
                     </Row>
 
                     {selectedSK.nomor_nd_sk && (
-                      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-                        <Col span={12}>
-                          <b>Nomor ND:</b> {selectedSK.nomor_nd_sk}
-                        </Col>
-                        <Col span={12}>
-                          <b>Tanggal ND:</b>{' '}
-                          {selectedSK.tanggal_nd_sk
-                            ? dayjs(selectedSK.tanggal_nd_sk).format('DD/MM/YYYY')
-                            : '-'}
-                        </Col>
-                      </Row>
+                      <>
+                        <Divider />
+                        <Title level={5} style={{ marginBottom: 12 }}>Nomor ND & SK</Title>
+                        <Row gutter={[16, 8]}>
+                          <Col xs={24} sm={12}>
+                            <Text type="secondary">Nomor ND:</Text>
+                            <div>{selectedSK.nomor_nd_sk}</div>
+                          </Col>
+                          <Col xs={24} sm={12}>
+                            <Text type="secondary">Tanggal ND:</Text>
+                            <div>{selectedSK.tanggal_nd_sk ? dayjs(selectedSK.tanggal_nd_sk).format('DD/MM/YYYY') : '-'}</div>
+                          </Col>
+                          <Col xs={24} sm={12}>
+                            <Text type="secondary">Nomor SK:</Text>
+                            <div>{selectedSK.nomor_sk || '-'}</div>
+                          </Col>
+                          <Col xs={24} sm={12}>
+                            <Text type="secondary">Tanggal SK:</Text>
+                            <div>{selectedSK.tanggal_sk ? dayjs(selectedSK.tanggal_sk).format('DD/MM/YYYY') : '-'}</div>
+                          </Col>
+                        </Row>
+                      </>
+                    )}
+
+                    {/* Riwayat Catatan */}
+                    {selectedSK.stages && selectedSK.stages.some(s => s.catatan) && (
+                      <>
+                        <Divider />
+                        <Title level={5} style={{ marginBottom: 12 }}>Riwayat Catatan</Title>
+                        <Timeline
+                          items={selectedSK.stages
+                            .filter(s => s.catatan)
+                            .map(stage => ({
+                              color: stage.kesimpulan === 'DISETUJUI' ? 'green' : stage.kesimpulan === 'PERBAIKAN' ? 'orange' : 'blue',
+                              children: (
+                                <div>
+                                  <Space>
+                                    <Tag color={stage.kesimpulan === 'DISETUJUI' ? 'success' : stage.kesimpulan === 'PERBAIKAN' ? 'warning' : 'processing'}>
+                                      {stage.step_name}
+                                    </Tag>
+                                    <Text type="secondary" style={{ fontSize: 12 }}>
+                                      {dayjs(stage.completed_at).format('DD/MM/YYYY HH:mm')}
+                                    </Text>
+                                  </Space>
+                                  <div style={{ marginTop: 4 }}>
+                                    <Text type="secondary">Kesimpulan: </Text>
+                                    <Tag color={stage.kesimpulan === 'DISETUJUI' ? 'success' : 'warning'}>
+                                      {stage.kesimpulan === 'DISETUJUI' ? 'Disetujui' : stage.kesimpulan === 'PERBAIKAN' ? 'Perbaikan' : '-'}
+                                    </Tag>
+                                  </div>
+                                  <div style={{ marginTop: 4, fontStyle: 'italic', color: '#666' }}>
+                                    "{stage.catatan}"
+                                  </div>
+                                </div>
+                              ),
+                            }))}
+                        />
+                      </>
                     )}
                   </div>
                 ),
@@ -723,10 +820,12 @@ export default function SkPerhutananPage() {
                 key: 'workflow',
                 label: 'Workflow',
                 children: (
-                  <div>
+                  <div style={{ padding: '16px 0' }}>
+                    {/* Horizontal Steps */}
                     <Steps
                       current={selectedSK.current_step - 1}
                       size="small"
+                      progressDot
                       items={WORKFLOW_STEPS.map((step) => ({
                         title: step.name,
                         status:
@@ -738,40 +837,61 @@ export default function SkPerhutananPage() {
                       }))}
                     />
 
-                    {selectedSK.stages && selectedSK.stages.length > 0 && (
-                      <div style={{ marginTop: 24 }}>
-                        <h4>Riwayat Proses:</h4>
-                        <Timeline
-                          items={selectedSK.stages
-                            .filter((s) => s.is_completed)
-                            .map((stage) => ({
-                              color: 'green',
-                              children: (
-                                <div>
-                                  <b>{stage.step_name}</b>
-                                  <br />
-                                  <Space>
-                                    <span>
-                                      {dayjs(stage.completed_at).format('DD/MM/YYYY HH:mm')}
-                                    </span>
-                                    {stage.kesimpulan && (
-                                      <Tag
-                                        color={stage.kesimpulan === 'DISETUJUI' ? 'green' : 'orange'}
-                                      >
-                                        {stage.kesimpulan}
-                                      </Tag>
-                                    )}
-                                  </Space>
-                                  {stage.catatan && (
-                                    <div style={{ marginTop: 4, fontStyle: 'italic' }}>
-                                      "{stage.catatan}"
-                                    </div>
-                                  )}
-                                </div>
-                              ),
-                            }))}
-                        />
-                      </div>
+                    {/* Current Step Info */}
+                    <Card size="small" style={{ marginTop: 24, background: '#f5f5f5' }}>
+                      <Row gutter={16} align="middle">
+                        <Col>
+                          <Tag color="processing" style={{ fontSize: 14, padding: '4px 12px' }}>
+                            Step {selectedSK.current_step}
+                          </Tag>
+                        </Col>
+                        <Col>
+                          <Text strong>{WORKFLOW_STEPS.find(s => s.num === selectedSK.current_step)?.name}</Text>
+                        </Col>
+                      </Row>
+                    </Card>
+
+                    {/* Detail per Step */}
+                    <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
+                      {selectedSK.stages?.filter(s => s.is_completed).map(stage => (
+                        <Col xs={24} sm={12} md={8} key={stage.id}>
+                          <Card
+                            size="small"
+                            title={
+                              <Space>
+                                <Tag color={stage.kesimpulan === 'DISETUJUI' ? 'success' : 'warning'}>{stage.step_num}</Tag>
+                                <Text>{stage.step_name}</Text>
+                              </Space>
+                            }
+                            extra={
+                              <Tag color={stage.kesimpulan === 'DISETUJUI' ? 'success' : 'warning'}>
+                                {stage.kesimpulan === 'DISETUJUI' ? 'OK' : 'Revisi'}
+                              </Tag>
+                            }
+                            styles={{ body: { padding: 12 } }}
+                          >
+                            <Space direction="vertical" size={4}>
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                {dayjs(stage.completed_at).format('DD/MM/YYYY HH:mm')}
+                              </Text>
+                              {stage.assignee && (
+                                <Text style={{ fontSize: 12 }}>
+                                  Oleh: {stage.assignee.fullname}
+                                </Text>
+                              )}
+                              {stage.catatan && (
+                                <Text style={{ fontSize: 12, fontStyle: 'italic', color: '#666' }}>
+                                  "{stage.catatan}"
+                                </Text>
+                              )}
+                            </Space>
+                          </Card>
+                        </Col>
+                      ))}
+                    </Row>
+
+                    {(!selectedSK.stages || selectedSK.stages.length === 0) && (
+                      <Empty description="Belum ada proses workflow" style={{ marginTop: 40 }} />
                     )}
                   </div>
                 ),
@@ -818,10 +938,5 @@ export default function SkPerhutananPage() {
 
 // Helper components
 function Divider() {
-  return <div style={{ height: 1, background: '#f0f0f0', margin: '16px 0' }} />;
-}
-
-function Title({ level, children }: { level: 1 | 2 | 3 | 4 | 5; children: React.ReactNode }) {
-  const Tag = `h${level}` as keyof JSX.IntrinsicElements;
-  return <Tag style={{ margin: '8px 0' }}>{children}</Tag>;
+  return <AntDivider />;
 }

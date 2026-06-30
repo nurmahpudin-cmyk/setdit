@@ -17,6 +17,17 @@ import {
   WhatsAppOutlined,
   CalendarOutlined,
   FileTextOutlined,
+  FolderOutlined,
+  ScheduleOutlined,
+  ClusterOutlined,
+  GlobalOutlined,
+  AimOutlined,
+  AppstoreOutlined,
+  PlusSquareOutlined,
+  ToolOutlined,
+  SafetyOutlined,
+  KeyOutlined,
+  CustomerServiceOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/useRedux';
@@ -84,8 +95,20 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   MenuOutlined: <MenuOutlined />,
   WhatsAppOutlined: <WhatsAppOutlined />,
   CalendarOutlined: <CalendarOutlined />,
-  UsergroupAddOutlined: <UserOutlined />,
   FileTextOutlined: <FileTextOutlined />,
+  FolderOutlined: <FolderOutlined />,
+  ScheduleOutlined: <ScheduleOutlined />,
+  ClusterOutlined: <ClusterOutlined />,
+  GlobalOutlined: <GlobalOutlined />,
+  AimOutlined: <AimOutlined />,
+  AppstoreOutlined: <AppstoreOutlined />,
+  PlusSquareOutlined: <PlusSquareOutlined />,
+  ToolOutlined: <ToolOutlined />,
+  SafetyOutlined: <SafetyOutlined />,
+  KeyOutlined: <KeyOutlined />,
+  CustomerServiceOutlined: <CustomerServiceOutlined />,
+  // Aliases
+  UsergroupAddOutlined: <TeamOutlined />,
 };
 
 export default function AppLayout() {
