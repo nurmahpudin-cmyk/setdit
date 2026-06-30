@@ -5,6 +5,9 @@ import { AuthRequest } from './auth.js';
 export const requirePermission = (...permissions: string[]) => {
   return async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
+      console.log('[RBAC] User ID from token:', req.user?.id);
+      console.log('[RBAC] Required permissions:', permissions);
+
       if (!req.user) {
         res.status(401).json({ success: false, message: 'Authentication required' });
         return;
@@ -30,6 +33,10 @@ export const requirePermission = (...permissions: string[]) => {
         },
       });
 
+      console.log('[RBAC] User from DB:', user?.email);
+      console.log('[RBAC] User roles:', user?.roles.map(ur => ur.role.code));
+      console.log('[RBAC] Role permissions count:', user?.roles.flatMap(ur => ur.role.permissions).length);
+
       if (!user) {
         res.status(401).json({ success: false, message: 'User not found' });
         return;
@@ -37,6 +44,7 @@ export const requirePermission = (...permissions: string[]) => {
 
       // Super Admin bypass
       const isSuperAdmin = user.roles.some((ur) => ur.role.is_super_admin);
+      console.log('[RBAC] Is Super Admin:', isSuperAdmin);
       if (isSuperAdmin) {
         next();
         return;
@@ -49,8 +57,12 @@ export const requirePermission = (...permissions: string[]) => {
       const directPermissions = user.permissions.map((up) => up.permission.code);
       const effectivePermissions = [...new Set([...rolePermissions, ...directPermissions])];
 
+      console.log('[RBAC] Effective permissions:', effectivePermissions);
+
       // Check if user has ALL required permissions
       const hasAllPermissions = permissions.every((p) => effectivePermissions.includes(p));
+
+      console.log('[RBAC] Has all permissions:', hasAllPermissions);
 
       if (!hasAllPermissions) {
         res.status(403).json({

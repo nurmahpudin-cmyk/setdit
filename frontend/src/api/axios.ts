@@ -27,6 +27,7 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Handle 401 - Unauthorized (token expired/invalid)
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 

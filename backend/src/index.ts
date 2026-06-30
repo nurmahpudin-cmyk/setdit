@@ -17,6 +17,10 @@ import { whatsappRouter } from './modules/whatsapp/routes.js';
 import { whatsappService } from './modules/whatsapp/service.js';
 import { jadwalPimpinanRouter } from './modules/jadwal_pimpinan/routes.js';
 import { pegawaiRouter } from './modules/pegawai/routes.js';
+import { skPerhutananRouter } from './modules/sk_perhutanan/routes.js';
+import { provinsiRouter } from './modules/provinsi/routes.js';
+import { kabkotaRouter } from './modules/kabkota/routes.js';
+import { skemaRouter } from './modules/skema/routes.js';
 
 const app = express();
 
@@ -74,6 +78,10 @@ app.use('/api/menus', menusRouter);
 app.use('/api/whatsapp', whatsappRouter);
 app.use('/api/jadwal-pimpinan', jadwalPimpinanRouter);
 app.use('/api/pegawai', pegawaiRouter);
+app.use('/api/sk-perhutanan', skPerhutananRouter);
+app.use('/api/provinsi', provinsiRouter);
+app.use('/api/kabkota', kabkotaRouter);
+app.use('/api/skema', skemaRouter);
 
 // 404 handler
 app.use((_req, res) => {

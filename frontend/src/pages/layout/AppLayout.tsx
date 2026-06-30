@@ -16,6 +16,7 @@ import {
   MenuOutlined,
   WhatsAppOutlined,
   CalendarOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/useRedux';
@@ -37,6 +38,10 @@ const PAGE_TITLES: Record<string, string> = {
   '/whatsapp': 'WhatsApp Gateway',
   '/jadwal-pimpinan': 'Jadwal Pimpinan',
   '/pegawai': 'Data Pegawai',
+  '/sk-perhutanan': 'SK Perhutanan Sosial',
+  '/master/provinsi': 'Master Provinsi',
+  '/master/kabkota': 'Master Kabupaten/Kota',
+  '/master/skema': 'Master Skema',
 };
 
 const { Header, Sider, Content } = Layout;
@@ -51,6 +56,10 @@ const getLogoUrl = (logo: string | undefined) => {
 
 const menuItems = [
   { key: '/dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
+  { key: '/sk-perhutanan', icon: <FileTextOutlined />, label: 'SK Perhutanan' },
+  { key: '/master/provinsi', icon: <FileTextOutlined />, label: 'Provinsi' },
+  { key: '/master/kabkota', icon: <FileTextOutlined />, label: 'Kabupaten/Kota' },
+  { key: '/master/skema', icon: <FileTextOutlined />, label: 'Skema' },
   { key: '/users', icon: <UserOutlined />, label: 'Pengguna' },
   { key: '/roles', icon: <TeamOutlined />, label: 'Role' },
   { key: '/permissions', icon: <LockOutlined />, label: 'Permission' },
@@ -76,6 +85,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   WhatsAppOutlined: <WhatsAppOutlined />,
   CalendarOutlined: <CalendarOutlined />,
   UsergroupAddOutlined: <UserOutlined />,
+  FileTextOutlined: <FileTextOutlined />,
 };
 
 export default function AppLayout() {

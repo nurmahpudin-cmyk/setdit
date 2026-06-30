@@ -7,8 +7,8 @@ const router = Router();
 
 router.use(authMiddleware);
 
-router.get('/', requirePermission('user.view', 'users.view'), usersController.findAll.bind(usersController));
-router.get('/:id', requirePermission('user.view', 'users.view'), usersController.findById.bind(usersController));
+router.get('/', usersController.findAll.bind(usersController));
+router.get('/:id', usersController.findById.bind(usersController));
 router.post('/', requirePermission('user.create', 'users.create'), usersController.create.bind(usersController));
 router.put('/:id', requirePermission('user.update', 'users.update'), usersController.update.bind(usersController));
 router.delete('/:id', requirePermission('user.delete', 'users.delete'), usersController.delete.bind(usersController));

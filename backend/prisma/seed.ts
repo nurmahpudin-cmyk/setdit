@@ -158,6 +158,14 @@ async function main() {
     { name: 'Edit Pegawai', code: 'pegawai.update', module: 'pegawai', action: 'update' },
     { name: 'Hapus Pegawai', code: 'pegawai.delete', module: 'pegawai', action: 'delete' },
     { name: 'Kelola Pegawai', code: 'pegawai.manage', module: 'pegawai', action: 'manage' },
+
+    // SK Perhutanan Sosial
+    { name: 'Lihat SK', code: 'sk_perhutanan.view', module: 'sk_perhutanan', action: 'view' },
+    { name: 'Buat SK', code: 'sk_perhutanan.create', module: 'sk_perhutanan', action: 'create' },
+    { name: 'Edit SK', code: 'sk_perhutanan.edit', module: 'sk_perhutanan', action: 'edit' },
+    { name: 'Submit SK', code: 'sk_perhutanan.submit', module: 'sk_perhutanan', action: 'submit' },
+    { name: 'Proses SK', code: 'sk_perhutanan.process', module: 'sk_perhutanan', action: 'process' },
+    { name: 'Kelola SK', code: 'sk_perhutanan.manage', module: 'sk_perhutanan', action: 'manage' },
   ];
 
   // Create/update permissions
@@ -193,6 +201,7 @@ async function main() {
             'user.view',
             'log.view',
             'dashboard.view',
+            'sk_perhutanan.view', 'sk_perhutanan.create', 'sk_perhutanan.edit', 'sk_perhutanan.submit', 'sk_perhutanan.process',
           ],
         },
       },
@@ -277,6 +286,7 @@ async function main() {
             'surat.view', 'surat.review', 'surat.download',
             'disposisi.view',
             'dashboard.view',
+            'sk_perhutanan.view', 'sk_perhutanan.process',
           ],
         },
       },
@@ -298,6 +308,7 @@ async function main() {
             'surat.view', 'surat.approve', 'surat.download',
             'disposisi.view',
             'dashboard.view',
+            'sk_perhutanan.view', 'sk_perhutanan.process',
           ],
         },
       },
@@ -341,6 +352,7 @@ async function main() {
             'disposisi.view',
             'dashboard.view',
             'laporan.view',
+            'sk_perhutanan.view',
           ],
         },
       },
@@ -373,6 +385,61 @@ async function main() {
     data: { user_id: adminUser.id, role_id: superAdmin!.id },
   });
   console.log('✅ Super Admin user created/updated');
+
+  // Create default users for each jabatan
+  const hashedPasswordDefault = await bcrypt.hash('rahasia123', 12);
+  const defaultUsers = [
+    { fullname: 'Admin TU', username: 'admin_tu', email: 'admin_tu@setdit.local', phone: '081234567801', roleCode: 'ADMIN_TU', jabatanCode: 'TU_SETDITJEN' },
+    { fullname: 'Sekditjen PS', username: 'sekditjen_ps', email: 'sekditjen_ps@setdit.local', phone: '081234567802', roleCode: 'APPROVER', jabatanCode: 'SEKDITJEN_PS' },
+    { fullname: 'Kabag PEHKT', username: 'kabag_pehkt', email: 'kabag_pehkt@setdit.local', phone: '081234567803', roleCode: 'REVIEWER', jabatanCode: 'KABAG_PEHKT' },
+    { fullname: 'Ketua Pokja Hukum', username: 'ketua_pokja', email: 'ketua_pokja@setdit.local', phone: '081234567804', roleCode: 'REVIEWER', jabatanCode: 'KETUA_POKJA_HUKUM' },
+    { fullname: 'Dirjen PS', username: 'dirjen_ps', email: 'dirjen_ps@setdit.local', phone: '081234567805', roleCode: 'APPROVER', jabatanCode: 'DIRJEN_PS' },
+    { fullname: 'Petugas Arsip', username: 'petugas_arsip', email: 'petugas_arsip@setdit.local', phone: '081234567806', roleCode: 'ARSIPARIS', jabatanCode: 'PETUGAS_ARSIP' },
+    // Multiple ANGGOTA_POKJA_HUKUM users
+    { fullname: 'Anggota Pokja 1', username: 'anggota_pokja1', email: 'anggota_pokja1@setdit.local', phone: '081234567807', roleCode: 'REVIEWER', jabatanCode: 'ANGGOTA_POKJA_HUKUM' },
+    { fullname: 'Anggota Pokja 2', username: 'anggota_pokja2', email: 'anggota_pokja2@setdit.local', phone: '081234567808', roleCode: 'REVIEWER', jabatanCode: 'ANGGOTA_POKJA_HUKUM' },
+    { fullname: 'Anggota Pokja 3', username: 'anggota_pokja3', email: 'anggota_pokja3@setdit.local', phone: '081234567809', roleCode: 'REVIEWER', jabatanCode: 'ANGGOTA_POKJA_HUKUM' },
+    { fullname: 'Anggota Pokja 4', username: 'anggota_pokja4', email: 'anggota_pokja4@setdit.local', phone: '081234567810', roleCode: 'REVIEWER', jabatanCode: 'ANGGOTA_POKJA_HUKUM' },
+  ];
+
+  for (const userData of defaultUsers) {
+    const role = await prisma.mst_roles.findUnique({ where: { code: userData.roleCode } });
+    const position = await prisma.mst_positions.findUnique({ where: { code: userData.jabatanCode } });
+
+    const user = await prisma.mst_users.upsert({
+      where: { email: userData.email },
+      update: {},
+      create: {
+        fullname: userData.fullname,
+        username: userData.username,
+        email: userData.email,
+        phone: userData.phone,
+        password: hashedPasswordDefault,
+        status: 'ACTIVE',
+        is_verified: true,
+        position_id: position?.id,
+      },
+    });
+
+    // Assign role
+    await prisma.tr_user_roles.deleteMany({ where: { user_id: user.id } });
+    await prisma.tr_user_roles.create({
+      data: { user_id: user.id, role_id: role!.id },
+    });
+
+    // Assign jabatan
+    await prisma.tr_jabatan_assignment.upsert({
+      where: { user_id_jabatan_code: { user_id: user.id, jabatan_code: userData.jabatanCode } },
+      update: { is_active: true },
+      create: {
+        user_id: user.id,
+        jabatan_code: userData.jabatanCode,
+        is_active: true,
+      },
+    });
+
+    console.log(`✅ User ${userData.username} created (${userData.jabatanCode})`);
+  }
 
   // Create default positions with role mapping
   const positionRoleMap = [
@@ -418,6 +485,7 @@ async function main() {
   // Create default menus
   const menuData = [
     { name: 'Dashboard', path: '/dashboard', module: 'app', icon: 'DashboardOutlined', order_num: 1 },
+    { name: 'SK Perhutanan', path: '/sk-perhutanan', module: 'app', icon: 'FileTextOutlined', order_num: 2 },
     { name: 'Jadwal Pimpinan', path: '/jadwal-pimpinan', module: 'app', icon: 'CalendarOutlined', order_num: 7 },
     { name: 'Data Pegawai', path: '/pegawai', module: 'app', icon: 'UsergroupAddOutlined', order_num: 8 },
     { name: 'Pengguna', path: '/users', module: 'admin', icon: 'UserOutlined', order_num: 10 },

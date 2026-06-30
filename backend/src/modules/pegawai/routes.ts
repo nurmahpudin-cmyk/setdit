@@ -7,40 +7,12 @@ const router = Router();
 
 router.use(authMiddleware);
 
-router.get(
-  '/',
-  requireAnyPermission('pegawai.view', 'pegawai.manage', 'admin.manage'),
-  pegawaiController.findAll.bind(pegawaiController)
-);
+router.get('/', pegawaiController.findAll.bind(pegawaiController));
+router.get('/all', pegawaiController.getAll.bind(pegawaiController));
+router.get('/:id', pegawaiController.findById.bind(pegawaiController));
 
-router.get(
-  '/all',
-  requireAnyPermission('pegawai.view', 'pegawai.manage', 'admin.manage'),
-  pegawaiController.getAll.bind(pegawaiController)
-);
-
-router.get(
-  '/:id',
-  requireAnyPermission('pegawai.view', 'pegawai.manage', 'admin.manage'),
-  pegawaiController.findById.bind(pegawaiController)
-);
-
-router.post(
-  '/',
-  requireAnyPermission('pegawai.create', 'pegawai.manage', 'admin.manage'),
-  pegawaiController.create.bind(pegawaiController)
-);
-
-router.put(
-  '/:id',
-  requireAnyPermission('pegawai.update', 'pegawai.manage', 'admin.manage'),
-  pegawaiController.update.bind(pegawaiController)
-);
-
-router.delete(
-  '/:id',
-  requireAnyPermission('pegawai.delete', 'pegawai.manage', 'admin.manage'),
-  pegawaiController.delete.bind(pegawaiController)
-);
+router.post('/', requireAnyPermission('pegawai.create', 'pegawai.manage', 'admin.manage'), pegawaiController.create.bind(pegawaiController));
+router.put('/:id', requireAnyPermission('pegawai.update', 'pegawai.manage', 'admin.manage'), pegawaiController.update.bind(pegawaiController));
+router.delete('/:id', requireAnyPermission('pegawai.delete', 'pegawai.manage', 'admin.manage'), pegawaiController.delete.bind(pegawaiController));
 
 export const pegawaiRouter = router;

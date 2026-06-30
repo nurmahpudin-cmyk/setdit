@@ -15,6 +15,10 @@ import MenuPage from '../pages/admin/MenuPage.tsx';
 import WhatsAppPage from '../pages/admin/WhatsAppPage.tsx';
 import JadwalPimpinanPage from '../pages/jadwal/JadwalPimpinanPage.tsx';
 import PegawaiPage from '../pages/pegawai/PegawaiPage.tsx';
+import SkPerhutananPage from '../pages/sk/SkPerhutananPage.tsx';
+import ProvinsiPage from '../pages/master/ProvinsiPage.tsx';
+import KabkotaPage from '../pages/master/KabkotaPage.tsx';
+import SkemaPage from '../pages/master/SkemaPage.tsx';
 import AppLayout from '../pages/layout/AppLayout.tsx';
 
 export function AppRoutes() {
@@ -58,6 +62,10 @@ export function AppRoutes() {
         <Route path="/whatsapp" element={<WhatsAppPage />} />
         <Route path="/jadwal-pimpinan" element={<JadwalPimpinanPage />} />
         <Route path="/pegawai" element={<PegawaiPage />} />
+        <Route path="/sk-perhutanan" element={<SkPerhutananPage />} />
+        <Route path="/master/provinsi" element={<ProvinsiPage />} />
+        <Route path="/master/kabkota" element={<KabkotaPage />} />
+        <Route path="/master/skema" element={<SkemaPage />} />
       </Route>
 
       {/* Default redirect */}
