@@ -11,6 +11,7 @@ export interface SKPerhutanan {
   perihal: string;
   tujuan_surat: string;
   konseptor_id?: number;
+  konseptor?: string;
   penandatangan?: string;
   nomor_nd_sk?: string;
   tanggal_nd_sk?: string;

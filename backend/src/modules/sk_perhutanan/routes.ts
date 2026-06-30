@@ -8,11 +8,11 @@ const router = Router();
 router.use(authMiddleware);
 
 // List & Detail
-router.get('/', requirePermission('sk_perhutanan.view'), skPerhutananController.findAll.bind(skPerhutananController));
+router.get('/', skPerhutananController.findAll.bind(skPerhutananController));
 router.get('/stats', skPerhutananController.getStats.bind(skPerhutananController));
 router.get('/pending/:jabatanCode', skPerhutananController.getPendingByJabatan.bind(skPerhutananController));
 router.get('/jabatan/:jabatanCode/users', skPerhutananController.getUsersByJabatan.bind(skPerhutananController));
-router.get('/:id', requirePermission('sk_perhutanan.view'), skPerhutananController.findById.bind(skPerhutananController));
+router.get('/:id', skPerhutananController.findById.bind(skPerhutananController));
 
 // CRUD
 router.post('/', requirePermission('sk_perhutanan.create'), skPerhutananController.create.bind(skPerhutananController));

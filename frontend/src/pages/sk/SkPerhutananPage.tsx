@@ -32,6 +32,11 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { skPerhutananApi, SKPerhutanan, SKWorkflowStage } from '../../api/skPerhutanan';
+import { provinsiApi, Provinsi } from '../../api/provinsi';
+import { kabkotaApi, Kabkota } from '../../api/kabkota';
+import { skemaApi, Skema } from '../../api/skema';
+import { externalApi, KelompokPS } from '../../api/external';
+import { useAppSelector } from '../../hooks/useRedux';
 
 const { TextArea } = Input;
 
@@ -55,6 +60,7 @@ const WORKFLOW_STEPS = [
 ];
 
 export default function SkPerhutananPage() {
+  const { user } = useAppSelector((state) => state.auth);
   const [data, setData] = useState<SKPerhutanan[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -68,12 +74,47 @@ export default function SkPerhutananPage() {
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0 });
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
   const [unitFilter, setUnitFilter] = useState<string | undefined>();
+  const [provinsiList, setProvinsiList] = useState<Provinsi[]>([]);
+  const [kabkotaList, setKabkotaList] = useState<Kabkota[]>([]);
+  const [skemaList, setSkemaList] = useState<Skema[]>([]);
+  const [selectedProvinsi, setSelectedProvinsi] = useState<string | undefined>();
+  const [kelompokPSList, setKelompokPSList] = useState<KelompokPS[]>([]);
 
   useEffect(() => {
-    fetchData();
+    const controller = new AbortController();
+    fetchData(controller.signal);
+    fetchMasterData(controller.signal);
+    return () => controller.abort();
   }, [pagination.page, pagination.limit, statusFilter, unitFilter]);
 
-  const fetchData = async () => {
+  const fetchMasterData = async (signal?: AbortSignal) => {
+    try {
+      const [provRes, skmRes] = await Promise.all([
+        provinsiApi.getAll(),
+        skemaApi.getAll(),
+      ]);
+      setProvinsiList(provRes.data.data);
+      setSkemaList(skmRes.data.data);
+    } catch { /* ignore */ }
+  };
+
+  const fetchKabkotaByProvinsi = async (proid: string) => {
+    try {
+      const res = await kabkotaApi.getAll(undefined, proid);
+      setKabkotaList(res.data.data);
+    } catch { /* ignore */ }
+  };
+
+  const fetchKelompokPSByParams = async (provId: string, kabId: string, skema: string | number) => {
+    try {
+      const data = await externalApi.getKelompokPS(provId, kabId, skema);
+      setKelompokPSList(data || []);
+    } catch {
+      setKelompokPSList([]);
+    }
+  };
+
+  const fetchData = async (signal?: AbortSignal) => {
     setLoading(true);
     try {
       const res = await skPerhutananApi.getAll({
@@ -83,9 +124,11 @@ export default function SkPerhutananPage() {
         status: statusFilter,
         unit_pengusul: unitFilter,
       });
+      if (signal?.aborted) return;
       setData(res.data.items);
       setPagination((prev) => ({ ...prev, total: res.data.pagination.total }));
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'CanceledError' || error?.response?.status === 0) return;
       message.error('Gagal memuat data SK');
     } finally {
       setLoading(false);
@@ -94,6 +137,9 @@ export default function SkPerhutananPage() {
 
   const handleAdd = () => {
     setEditingId(null);
+    setSelectedProvinsi(undefined);
+    setKabkotaList([]);
+    setKelompokPSList([]);
     form.resetFields();
     form.setFieldsValue({
       tanggal_terima: dayjs(),
@@ -108,6 +154,13 @@ export default function SkPerhutananPage() {
       return;
     }
     setEditingId(record.id);
+    const provId = record.provinsi;
+    setSelectedProvinsi(provId);
+    setKelompokPSList([]);
+    if (provId) fetchKabkotaByProvinsi(provId);
+    if (provId && record.kabupaten && record.skema) {
+      fetchKelompokPSByParams(provId, record.kabupaten, record.skema);
+    }
     form.setFieldsValue({
       nomor_surat: record.nomor_surat,
       tanggal_surat: record.tanggal_surat ? dayjs(record.tanggal_surat) : undefined,
@@ -116,11 +169,11 @@ export default function SkPerhutananPage() {
       perihal: record.perihal,
       tujuan_surat: record.tujuan_surat,
       penandatangan: record.penandatangan,
-      provinsi: record.provinsi,
+      provinsi: provId,
       kabupaten: record.kabupaten,
       kecamatan: record.kecamatan,
       desa: record.desa,
-      skema: record.skema,
+      skema: Number(record.skema) || record.skema,
       kelompok_ps: record.kelompok_ps,
       luas: record.luas,
       jml_kk: record.jml_kk,
@@ -133,9 +186,11 @@ export default function SkPerhutananPage() {
       const values = await form.validateFields();
       const submitData = {
         ...values,
+        skema: values.skema ? String(values.skema) : undefined,
         tanggal_terima: values.tanggal_terima.format('YYYY-MM-DD'),
         tanggal_surat: values.tanggal_surat?.format('YYYY-MM-DD'),
       };
+      delete submitData.konseptor;
 
       if (editingId) {
         await skPerhutananApi.update(editingId, submitData);
@@ -384,14 +439,122 @@ export default function SkPerhutananPage() {
         width={800}
       >
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
+          <Divider />
+          <Title level={5}>Data Lokasi</Title>
+
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item name="nomor_surat" label="Nomor Surat">
+              <Form.Item name="provinsi" label="Provinsi">
+                <Select
+                  allowClear showSearch optionFilterProp="label"
+                  placeholder="Pilih Provinsi"
+                  onChange={(val) => {
+                    setSelectedProvinsi(val);
+                    form.setFieldValue('kabupaten', undefined);
+                    setKabkotaList([]);
+                    if (val) fetchKabkotaByProvinsi(val);
+                  }}
+                  options={provinsiList.map(p => ({ label: p.provinsi, value: p.proid }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="kabupaten" label="Kabupaten">
+                <Select
+                  allowClear showSearch optionFilterProp="label"
+                  placeholder="Pilih Kabupaten/Kota"
+                  disabled={!selectedProvinsi}
+                  options={kabkotaList.map(k => ({ label: k.kabkota, value: k.kabid }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="skema" label="Skema">
+                <Select
+                  allowClear showSearch optionFilterProp="label"
+                  placeholder="Pilih Skema"
+                  onChange={(val) => {
+                    form.setFieldValue('kelompok_ps', undefined);
+                    setKelompokPSList([]);
+                    const provId = form.getFieldValue('provinsi');
+                    const kabId = form.getFieldValue('kabupaten');
+                    if (provId && kabId && val) fetchKelompokPSByParams(provId, kabId, val);
+                  }}
+                  options={skemaList.map(s => ({ label: s.nama_skema, value: s.id_skema }))}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="kelompok_ps"
+                label="Kelompok PS"
+                extra={kelompokPSList.length === 0 ? 'Tidak ada data di server. Silakan ketik manual.' : undefined}
+              >
+                <Select
+                  showSearch
+                  mode="tags"
+                  optionFilterProp="label"
+                  placeholder="Pilih atau ketik manual"
+                  onSelect={(val) => {
+                    const selected = kelompokPSList.find(k => k.id_us === val);
+                    if (selected) {
+                      form.setFieldsValue({
+                        kelompok_ps: selected.nama_kelompok,
+                        kecamatan: selected.kecamatan,
+                        desa: selected.desa,
+                        luas: Number(selected.luas) || undefined,
+                        jml_kk: Number(selected.jml_kk) || undefined,
+                        nomor_surat: selected.no_nd || undefined,
+                        tanggal_surat: selected.tgl_nd ? dayjs(selected.tgl_nd) : undefined,
+                      });
+                    }
+                  }}
+                  options={kelompokPSList.map((k) => ({
+                    label: k.nama_kelompok,
+                    value: k.id_us,
+                  }))}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="kecamatan" label="Kecamatan">
+                <Input placeholder="Kecamatan" />
+              </Form.Item>
+            </Col>
+            <Col span={6}>
+              <Form.Item name="desa" label="Desa">
+                <Input placeholder="Desa" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="luas" label="Luas (Ha)">
+                <InputNumber style={{ width: '100%' }} placeholder="Luas" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item name="jml_kk" label="Jumlah KK">
+                <InputNumber style={{ width: '100%' }} placeholder="Jumlah KK" />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Divider />
+          <Title level={5}>Data Surat</Title>
+          
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item name="nomor_surat" label="Nomor ND">
                 <Input placeholder="Contoh: 123/ABC/2024" />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="tanggal_surat" label="Tanggal Surat">
+              <Form.Item name="tanggal_surat" label="Tanggal ND">
                 <DatePicker style={{ width: '100%' }} />
               </Form.Item>
             </Col>
@@ -405,7 +568,7 @@ export default function SkPerhutananPage() {
               </Form.Item>
             </Col>
           </Row>
-
+          
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item
@@ -426,6 +589,11 @@ export default function SkPerhutananPage() {
                 <Input placeholder="Dirjen PS" />
               </Form.Item>
             </Col>
+            <Col span={8}>
+              <Form.Item name="konseptor" label="Konseptor">
+                <Input placeholder="Nama Konseptor" />
+              </Form.Item>
+            </Col>
           </Row>
 
           <Form.Item
@@ -440,58 +608,7 @@ export default function SkPerhutananPage() {
             <Input placeholder="Tujuan surat" />
           </Form.Item>
 
-          <Divider />
-
-          <Title level={5}>Data Lokasi</Title>
-
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item name="provinsi" label="Provinsi">
-                <Input placeholder="Provinsi" />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="kabupaten" label="Kabupaten">
-                <Input placeholder="Kabupaten" />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="kecamatan" label="Kecamatan">
-                <Input placeholder="Kecamatan" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item name="desa" label="Desa">
-                <Input placeholder="Desa" />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="skema" label="Skema">
-                <Input placeholder="Skema" />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="kelompok_ps" label="Kelompok PS">
-                <Input placeholder="Kelompok PS" />
-              </Form.Item>
-            </Col>
-          </Row>
-
-          <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item name="luas" label="Luas (Ha)">
-                <InputNumber style={{ width: '100%' }} placeholder="Luas" />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="jml_kk" label="Jumlah KK">
-                <InputNumber style={{ width: '100%' }} placeholder="Jumlah KK" />
-              </Form.Item>
-            </Col>
-          </Row>
+          
         </Form>
       </Modal>
 

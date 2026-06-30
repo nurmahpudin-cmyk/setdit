@@ -129,6 +129,7 @@ export class SkPerhutananService {
     perihal: string;
     tujuan_surat: string;
     konseptor_id?: number;
+    konseptor?: string;
     penandatangan?: string;
     provinsi?: string;
     kabupaten?: string;
@@ -152,6 +153,7 @@ export class SkPerhutananService {
         perihal: data.perihal,
         tujuan_surat: data.tujuan_surat,
         konseptor_id: data.konseptor_id ?? userId,
+        konseptor: data.konseptor,
         penandatangan: data.penandatangan,
         provinsi: data.provinsi,
         kabupaten: data.kabupaten,

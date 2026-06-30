@@ -3,7 +3,9 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
+import swaggerUi from 'swagger-ui-express';
 import { config } from './config/index.js';
+import { swaggerSpec } from './config/swagger.js';
 import { authRouter } from './modules/auth/routes.js';
 import { usersRouter } from './modules/users/routes.js';
 import { rolesRouter } from './modules/roles/routes.js';
@@ -21,6 +23,7 @@ import { skPerhutananRouter } from './modules/sk_perhutanan/routes.js';
 import { provinsiRouter } from './modules/provinsi/routes.js';
 import { kabkotaRouter } from './modules/kabkota/routes.js';
 import { skemaRouter } from './modules/skema/routes.js';
+import { externalRouter } from './modules/external/proxy.js';
 
 const app = express();
 
@@ -65,6 +68,9 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Swagger docs
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
 // Routes
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
@@ -82,6 +88,7 @@ app.use('/api/sk-perhutanan', skPerhutananRouter);
 app.use('/api/provinsi', provinsiRouter);
 app.use('/api/kabkota', kabkotaRouter);
 app.use('/api/skema', skemaRouter);
+app.use('/api/external', externalRouter);
 
 // 404 handler
 app.use((_req, res) => {

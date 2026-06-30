@@ -457,6 +457,7 @@ model tr_sk_perhutanan {
   perihal          String
   tujuan_surat     String
   konseptor_id     Int?
+  konseptor        String?  // Input manual nama konseptor
   penandatangan    String?
   nomor_nd_sk      String?
   tanggal_nd_sk    DateTime?
