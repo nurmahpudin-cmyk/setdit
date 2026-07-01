@@ -821,35 +821,33 @@ export default function SkPerhutananPage() {
                       </>
                     )}
 
-                    {/* Riwayat Catatan */}
-                    {selectedSK.stages && selectedSK.stages.some(s => s.catatan && s.catatan.length > 0) && (
+                    {/* Riwayat Catatan - Diurutkan berdasarkan waktu */}
+                    {selectedSK.catatan_history && selectedSK.catatan_history.length > 0 && (
                       <>
                         <Divider />
                         <Title level={5} style={{ marginBottom: 12 }}>Riwayat Catatan</Title>
                         <Timeline
-                          items={selectedSK.stages
-                            .filter(s => s.catatan && s.catatan.length > 0)
-                            .flatMap(stage => stage.catatan?.map(c => ({
-                              color: stage.kesimpulan === 'DISETUJUI' ? 'green' : stage.kesimpulan === 'PERBAIKAN' || stage.kesimpulan === 'PERBAIKAN_DIREKTORAT' ? 'orange' : 'blue',
-                              children: (
-                                <div>
-                                  <Space>
-                                    <Tag color={stage.kesimpulan === 'DISETUJUI' ? 'success' : stage.kesimpulan === 'PERBAIKAN' || stage.kesimpulan === 'PERBAIKAN_DIREKTORAT' ? 'warning' : 'processing'}>
-                                      {stage.step_name}
-                                    </Tag>
-                                    <Text type="secondary" style={{ fontSize: 12 }}>
-                                      {dayjs(c.created_at).format('DD/MM/YYYY HH:mm')}
-                                    </Text>
-                                  </Space>
-                                  <div style={{ marginTop: 4, fontWeight: 500, color: '#1890ff' }}>
-                                    {c.user?.fullname || 'Unknown'}
-                                  </div>
-                                  <div style={{ marginTop: 4, fontStyle: 'italic', color: '#666' }}>
-                                    "{c.catatan}"
-                                  </div>
+                          items={selectedSK.catatan_history.map((c: any) => ({
+                            color: c.kesimpulan === 'DISETUJUI' ? 'green' : c.kesimpulan === 'PERBAIKAN' || c.kesimpulan === 'PERBAIKAN_DIREKTORAT' ? 'orange' : 'blue',
+                            children: (
+                              <div>
+                                <Space>
+                                  <Tag color={c.kesimpulan === 'DISETUJUI' ? 'success' : c.kesimpulan === 'PERBAIKAN' || c.kesimpulan === 'PERBAIKAN_DIREKTORAT' ? 'warning' : 'processing'}>
+                                    {c.step_name || `Step ${c.step_num}`}
+                                  </Tag>
+                                  <Text type="secondary" style={{ fontSize: 12 }}>
+                                    {dayjs(c.created_at).format('DD/MM/YYYY HH:mm')}
+                                  </Text>
+                                </Space>
+                                <div style={{ marginTop: 4, fontWeight: 500, color: '#1890ff' }}>
+                                  {c.user?.fullname || 'Unknown'}
                                 </div>
-                              ),
-                            })) || [])}
+                                <div style={{ marginTop: 4, fontStyle: 'italic', color: '#666' }}>
+                                  "{c.catatan}"
+                                </div>
+                              </div>
+                            ),
+                          }))}
                         />
                       </>
                     )}
@@ -1011,7 +1009,7 @@ export default function SkPerhutananPage() {
             >
               <Select
                 options={[
-                  { label: 'Telaah dan Koreksi Substansi - Lanjut ke tahap berikutnya', value: 'TELAAH_SUBSTANSI' },
+                  { label: 'Lanjut ke tahap berikutnya', value: 'TELAAH_SUBSTANSI' },
                   { label: 'Perbaikan ke Direktorat', value: 'PERBAIKAN_DIREKTORAT' },
                 ]}
               />
@@ -1022,12 +1020,12 @@ export default function SkPerhutananPage() {
             <Form.Item
               name="kesimpulan"
               label="Kesimpulan"
-              initialValue="DISETUJUI"
+              initialValue="DISPOSISI"
               rules={[{ required: true, message: 'Harus dipilih' }]}
             >
               <Select
                 options={[
-                  { label: 'Disposisi', value: 'DISETUJUI' }
+                  { label: 'Disposisi', value: 'DISPOSISI' }
                 ]}
               />
             </Form.Item>
@@ -1037,12 +1035,12 @@ export default function SkPerhutananPage() {
             <Form.Item
               name="kesimpulan"
               label="Kesimpulan"
-              initialValue="DISETUJUI"
+              initialValue="DISPOSISI"
               rules={[{ required: true, message: 'Harus dipilih' }]}
             >
               <Select
                 options={[
-                  { label: 'Disposisi', value: 'DISETUJUI' },
+                  { label: 'Disposisi', value: 'DISPOSISI' },
                 ]}
               />
             </Form.Item>
@@ -1052,12 +1050,12 @@ export default function SkPerhutananPage() {
             <Form.Item
               name="kesimpulan"
               label="Kesimpulan"
-              initialValue="DISETUJUI"
+              initialValue="DISTRIBUSI"
               rules={[{ required: true, message: 'Harus dipilih' }]}
             >
               <Select
                 options={[
-                  { label: 'Distribusi', value: 'DISETUJUI' },
+                  { label: 'Distribusi', value: 'DISTRIBUSI' },
                 ]}
               />
             </Form.Item>
@@ -1072,7 +1070,23 @@ export default function SkPerhutananPage() {
               <Select
                 options={[
                   { label: 'Disetujui - Lanjut ke tahap berikutnya', value: 'DISETUJUI' },
-                  { label: 'Perbaikan ke Anggota', value: 'PERBAIKAN' },
+                  { label: 'Perbaikan ke Drafter', value: 'PERBAIKAN' },
+                ]}
+              />
+            </Form.Item>
+          )}
+
+          {selectedSK?.current_step === 7 && (
+            <Form.Item
+              name="kesimpulan"
+              label="Kesimpulan"
+              initialValue="DISETUJUI"
+              rules={[{ required: true, message: 'Harus dipilih' }]}
+            >
+              <Select
+                options={[
+                  { label: 'Disetujui - Lanjut ke tahap berikutnya', value: 'DISETUJUI' },
+                  { label: 'Perbaikan ke Drafter', value: 'PERBAIKAN' },
                 ]}
               />
             </Form.Item>

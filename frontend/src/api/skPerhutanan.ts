@@ -10,7 +10,6 @@ export interface SKPerhutanan {
   unit_pengusul: 'PKPS' | 'PKTHA';
   perihal: string;
   tujuan_surat: string;
-  konseptor_id?: number;
   konseptor?: string;
   penandatangan?: string;
   nomor_nd_sk?: string;
@@ -33,6 +32,12 @@ export interface SKPerhutanan {
   creator?: { id: number; fullname: string };
   stages?: SKWorkflowStage[];
   dispositions?: SKDisposition[];
+  catatan_history?: SKCatatanWithStep[];
+}
+
+export interface SKCatatanWithStep extends SKCatatan {
+  step_name?: string;
+  kesimpulan?: string;
 }
 
 export interface SKWorkflowStage {

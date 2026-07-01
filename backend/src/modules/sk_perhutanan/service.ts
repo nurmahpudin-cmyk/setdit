@@ -167,11 +167,27 @@ export class SkPerhutananService {
           orderBy: { created_at: 'desc' },
           take: 20,
         },
+        catatan_history: {
+          include: {
+            user: { select: { id: true, fullname: true } },
+          },
+          orderBy: { created_at: 'desc' }, // Urutkan berdasarkan waktu, terbaru dulu
+        },
       },
     });
 
     if (!sk) {
       throw new Error('SK not found');
+    }
+
+    // Tambahkan step_name dan kesimpulan ke setiap catatan untuk konteks
+    if (sk.catatan_history && sk.stages) {
+      const stageMap = new Map(sk.stages.map(s => [s.step_num, s]));
+      sk.catatan_history = sk.catatan_history.map(catatan => ({
+        ...catatan,
+        step_name: stageMap.get(catatan.step_num)?.step_name || `Step ${catatan.step_num}`,
+        kesimpulan: stageMap.get(catatan.step_num)?.kesimpulan,
+      }));
     }
 
     return sk;
@@ -184,7 +200,6 @@ export class SkPerhutananService {
     unit_pengusul: string;
     perihal: string;
     tujuan_surat: string;
-    konseptor_id?: number;
     konseptor?: string;
     penandatangan?: string;
     provinsi?: string;
@@ -199,26 +214,7 @@ export class SkPerhutananService {
     const tanggal_terima = new Date(data.tanggal_terima);
     const tanggal_deadline = addWorkingDays(tanggal_terima, 14);
 
-    // Resolve IDs to names for lokasi fields
-    let [provinsiName, kabupatenName, skemaName] = [data.provinsi, data.kabupaten, data.skema];
-
-    if (data.provinsi) {
-      const prov = await prisma.mst_provinsi.findUnique({ where: { proid: data.provinsi } });
-      if (prov) provinsiName = prov.provinsi;
-    }
-
-    if (data.kabupaten) {
-      const kab = await prisma.mst_kabkota.findUnique({ where: { kabid: data.kabupaten } });
-      if (kab) kabupatenName = kab.kabkota;
-    }
-
-    if (data.skema) {
-      const skemaId = parseInt(data.skema);
-      if (!isNaN(skemaId)) {
-        const skema = await prisma.mst_skema.findUnique({ where: { id_skema: skemaId } });
-        if (skema) skemaName = skema.nama_skema || data.skema;
-      }
-    }
+    // Simpan ID untuk provinsi, kabupaten, skema (bukan nama)
 
     const sk = await prisma.tr_sk_perhutanan.create({
       data: {
@@ -229,14 +225,14 @@ export class SkPerhutananService {
         unit_pengusul: data.unit_pengusul,
         perihal: data.perihal,
         tujuan_surat: data.tujuan_surat,
-        konseptor_id: data.konseptor_id ?? userId,
         konseptor: data.konseptor,
         penandatangan: data.penandatangan,
-        provinsi: provinsiName,
-        kabupaten: kabupatenName,
+        // Simpan ID saja
+        provinsi: data.provinsi,
+        kabupaten: data.kabupaten,
         kecamatan: data.kecamatan,
         desa: data.desa,
-        skema: skemaName,
+        skema: data.skema,
         kelompok_ps: data.kelompok_ps,
         luas: data.luas,
         jml_kk: data.jml_kk,
@@ -255,7 +251,7 @@ export class SkPerhutananService {
     unit_pengusul: string;
     perihal: string;
     tujuan_surat: string;
-    konseptor_id: number;
+    konseptor: string;
     penandatangan: string;
     provinsi: string;
     kabupaten: string;
@@ -271,24 +267,7 @@ export class SkPerhutananService {
 
     const updateData: any = { ...data };
 
-    // Resolve IDs to names for lokasi fields
-    if (data.provinsi) {
-      const prov = await prisma.mst_provinsi.findUnique({ where: { proid: data.provinsi } });
-      if (prov) updateData.provinsi = prov.provinsi;
-    }
-
-    if (data.kabupaten) {
-      const kab = await prisma.mst_kabkota.findUnique({ where: { kabid: data.kabupaten } });
-      if (kab) updateData.kabupaten = kab.kabkota;
-    }
-
-    if (data.skema) {
-      const skemaId = parseInt(data.skema);
-      if (!isNaN(skemaId)) {
-        const skema = await prisma.mst_skema.findUnique({ where: { id_skema: skemaId } });
-        if (skema) updateData.skema = skema.nama_skema || data.skema;
-      }
-    }
+    // Simpan ID untuk provinsi, kabupaten, skema (bukan nama)
 
     if (data.tanggal_surat) {
       updateData.tanggal_surat = new Date(data.tanggal_surat);
@@ -330,8 +309,30 @@ export class SkPerhutananService {
       },
     });
 
+    // Format tanggal
+    const tanggalFormatted = sk.tanggal_surat
+      ? new Date(sk.tanggal_surat).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+      : '-';
+
+    // Resolve nama skema dari ID
+    let skemaName = sk.skema || '-';
+    if (sk.skema) {
+      const skemaId = parseInt(sk.skema);
+      if (!isNaN(skemaId)) {
+        const skema = await prisma.mst_skema.findUnique({ where: { id_skema: skemaId } });
+        if (skema) skemaName = skema.nama_skema || sk.skema;
+      }
+    }
+
     // Notify SEKDITJEN_PS users
-    await this.notifyJabatan(id, 'SEKDITJEN_PS', `SK baru perlu didisposisi:\n${sk.perihal}`);
+    await this.notifyJabatan(id, 'SEKDITJEN_PS', `Yth. Setditjen PS,
+
+Terdapat usulan Naskah Dinas Draft SK Perhutanan Sosial yang telah diagenda dan diinput ke dalam sistem. Mohon dilakukan disposisi untuk proses lebih lanjut.
+
+Nomor ND: ${sk.nomor_surat || '-'}
+Tanggal: ${tanggalFormatted}
+Perihal: ${sk.perihal}
+Skema: ${skemaName}`);
 
     return updated;
   }
@@ -713,15 +714,22 @@ export class SkPerhutananService {
     for (const step of WORKFLOW_STEPS) {
       if (step.num === 1) continue; // Skip step 1 (already created by user)
 
-      await prisma.tr_sk_workflow.create({
-        data: {
-          sk_id: skId,
-          step_num: step.num,
-          step_name: step.name,
-          jabatan_code: step.jabatan || '',
-          action: step.action,
-        },
+      // Check if already exists (handles retry cases)
+      const existing = await prisma.tr_sk_workflow.findFirst({
+        where: { sk_id: skId, step_num: step.num },
       });
+
+      if (!existing) {
+        await prisma.tr_sk_workflow.create({
+          data: {
+            sk_id: skId,
+            step_num: step.num,
+            step_name: step.name,
+            jabatan_code: step.jabatan || '',
+            action: step.action,
+          },
+        });
+      }
     }
   }
 

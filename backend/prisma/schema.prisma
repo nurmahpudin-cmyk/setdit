@@ -512,7 +512,7 @@ model tr_sk_workflow {
   completedByUser mst_users?       @relation("SKCompletedBy", fields: [completed_by], references: [id])
   catatan_list    tr_sk_catatan[]  @relation("WorkflowCatatan")
 
-  @@index([sk_id, step_num])
+  @@unique([sk_id, step_num])
   @@map("tr_sk_workflow")
 }
 
