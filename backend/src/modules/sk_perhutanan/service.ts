@@ -118,7 +118,19 @@ export class SkPerhutananService {
         where,
         include: {
           creator: { select: { id: true, fullname: true } },
-          stages: { orderBy: { step_num: 'asc' } },
+          stages: {
+            include: {
+              assignee: { select: { id: true, fullname: true } },
+              completedByUser: { select: { id: true, fullname: true } },
+              catatan_list: {
+                include: {
+                  user: { select: { id: true, fullname: true } },
+                },
+                orderBy: { created_at: 'asc' },
+              },
+            },
+            orderBy: { step_num: 'asc' },
+          },
         },
         skip,
         take: limit,
@@ -138,6 +150,13 @@ export class SkPerhutananService {
         stages: {
           include: {
             assignee: { select: { id: true, fullname: true } },
+            completedByUser: { select: { id: true, fullname: true } },
+            catatan_list: {
+              include: {
+                user: { select: { id: true, fullname: true } },
+              },
+              orderBy: { created_at: 'asc' },
+            },
           },
           orderBy: { step_num: 'asc' },
         },
@@ -330,11 +349,27 @@ export class SkPerhutananService {
 
     const nextStepConfig = WORKFLOW_STEPS.find(s => s.num === sk.current_step + 1);
 
-    // Update current stage
+    // Check if stage already has catatan (for appending history)
+    const existingStage = await prisma.tr_sk_workflow.findFirst({
+      where: { sk_id: id, step_num: sk.current_step },
+    });
+
+    // Save each catatan as separate entry with timestamp
+    if (stepData.catatan) {
+      await prisma.tr_sk_catatan.create({
+        data: {
+          sk_id: id,
+          step_num: sk.current_step,
+          user_id: userId,
+          catatan: stepData.catatan,
+        },
+      });
+    }
+
+    // Update current stage (only kesimpulan and completion status)
     await prisma.tr_sk_workflow.updateMany({
       where: { sk_id: id, step_num: sk.current_step },
       data: {
-        catatan: stepData.catatan,
         kesimpulan: stepData.kesimpulan,
         is_completed: true,
         completed_at: new Date(),

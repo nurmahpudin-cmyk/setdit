@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   Table, Card, Button, Input, Tag, Modal, Form, message,
   Popconfirm, Typography, Checkbox, Dropdown, Grid
@@ -69,14 +69,24 @@ export default function RolesPage() {
 
   const openPermissions = async (role: Role) => {
     setCurrentRoleId(role.id);
-    setPermOpen(true);
     try {
       const res = await rolesApi.getPermissions(role.id);
       setSelectedPerms(res.data.data.map((p: Permission) => p.id));
     } catch {
       setSelectedPerms([]);
     }
+    setPermOpen(true);
   };
+
+  const togglePermission = useCallback((permId: number) => {
+    setSelectedPerms(prev => {
+      if (prev.includes(permId)) {
+        return prev.filter(id => id !== permId);
+      } else {
+        return [...prev, permId];
+      }
+    });
+  }, []);
 
   const savePermissions = async () => {
     try {
@@ -207,17 +217,17 @@ export default function RolesPage() {
         {Object.entries(groupedPerms).map(([module, perms]) => (
           <div key={module} style={{ marginBottom: 16 }}>
             <Title level={5} style={{ textTransform: 'capitalize' }}>{module}</Title>
-            <Checkbox.Group
-              value={selectedPerms}
-              onChange={(vals) => setSelectedPerms(vals as number[])}
-              style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}
-            >
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {perms.map((p) => (
-                <Checkbox key={p.id} value={p.id}>
+                <Checkbox
+                  key={p.id}
+                  checked={selectedPerms.includes(p.id)}
+                  onChange={() => togglePermission(p.id)}
+                >
                   {p.action} <Tag style={{ fontSize: 10 }}>{p.code}</Tag>
                 </Checkbox>
               ))}
-            </Checkbox.Group>
+            </div>
           </div>
         ))}
       </Modal>

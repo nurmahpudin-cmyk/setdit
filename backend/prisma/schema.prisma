@@ -48,20 +48,22 @@ model mst_users {
   updated_at   DateTime    @updatedAt
   deleted_at   DateTime?
 
-  position     mst_positions?        @relation(fields: [position_id], references: [id])
-  unit         mst_units?            @relation(fields: [unit_id], references: [id])
-  roles        tr_user_roles[]
-  permissions  tr_user_permissions[]
-  approvals    tr_user_approval[]    @relation("Approver")
-  approved     tr_user_approval[]    @relation("UserApproved")
-  otps         tr_otp[]
-  activityLogs activity_logs[]
-  wa_logs      wa_logs[]
-  jadwal_created tr_jadwal_pimpinan[]
-  jabatan_assignments tr_jabatan_assignment[]
-  sk_created tr_sk_perhutanan[] @relation("SKCreator")
-  sk_workflow_assignee tr_sk_workflow[] @relation("SKAssignee")
-  sk_notification_recipient tr_sk_notification[] @relation("SKNotificationRecipient")
+  position                  mst_positions?          @relation(fields: [position_id], references: [id])
+  unit                      mst_units?              @relation(fields: [unit_id], references: [id])
+  roles                     tr_user_roles[]
+  permissions               tr_user_permissions[]
+  approvals                 tr_user_approval[]      @relation("Approver")
+  approved                  tr_user_approval[]      @relation("UserApproved")
+  otps                      tr_otp[]
+  activityLogs              activity_logs[]
+  wa_logs                   wa_logs[]
+  completedWorkflows        tr_sk_workflow[]        @relation("SKCompletedBy")
+  jadwal_created            tr_jadwal_pimpinan[]
+  jabatan_assignments       tr_jabatan_assignment[]
+  sk_created                tr_sk_perhutanan[]      @relation("SKCreator")
+  sk_workflow_assignee      tr_sk_workflow[]        @relation("SKAssignee")
+  sk_notification_recipient tr_sk_notification[]    @relation("SKNotificationRecipient")
+  sk_catatan                tr_sk_catatan[]
 
   @@map("mst_users")
 }
@@ -308,29 +310,29 @@ enum wa_status {
 // ============================================
 
 model mst_provinsi {
-  proid            String    @id @map("proid")
-  provinsi         String?
-  id_sumber        Int?      @map("id_sumber")
-  nama_gubernur    String?   @map("nama_gubern")
-  email            String?
-  wilayah          String?
-  nama_dinas       String?   @map("nama_dinas")
-  sk_perkembangan  String?   @map("sk_perkembangan")
+  proid               String    @id @map("proid")
+  provinsi            String?
+  id_sumber           Int?      @map("id_sumber")
+  nama_gubernur       String?   @map("nama_gubern")
+  email               String?
+  wilayah             String?
+  nama_dinas          String?   @map("nama_dinas")
+  sk_perkembangan     String?   @map("sk_perkembangan")
   tgl_sk_perkembangan DateTime? @map("tgl_sk_perkembangan")
-  regional_id      Int?      @map("regional_id")
-  deleted_at       DateTime? @map("deleted_at")
-  pulau_id         Int?      @map("pulau_id")
+  regional_id         Int?      @map("regional_id")
+  deleted_at          DateTime? @map("deleted_at")
+  pulau_id            Int?      @map("pulau_id")
 
   @@map("mst_provinsi")
 }
 
 model mst_kabkota {
-  kabid        String  @id @map("kabid")
-  proid        String? @map("proid")
-  kabkota      String? @map("kabkota")
-  id_sumber    Int?    @map("id_sumber")
+  kabid         String  @id @map("kabid")
+  proid         String? @map("proid")
+  kabkota       String? @map("kabkota")
+  id_sumber     Int?    @map("id_sumber")
   nama_walikota String? @map("nama_walikota")
-  email        String?
+  email         String?
 
   @@map("kabkota")
 }
@@ -347,14 +349,14 @@ model mst_skema {
 // ============================================
 
 model mst_pegawai {
-  id             Int       @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   nama_lengkap   String
   nama_panggilan String?
-  nip            String    @unique
+  nip            String   @unique
   nomor_wa       String?
-  is_active      Boolean   @default(true)
-  created_at     DateTime  @default(now())
-  updated_at     DateTime  @updatedAt
+  is_active      Boolean  @default(true)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
 
   jadwal_pendamping tr_jadwal_pendamping_pegawai[]
 
@@ -366,19 +368,19 @@ model mst_pegawai {
 // ============================================
 
 model tr_jadwal_pimpinan {
-  id              Int       @id @default(autoincrement())
-  acara          String
-  lokasi         String
-  sebagai        String
-  tanggal_awal   DateTime
-  tanggal_akhir  DateTime
-  is_notified    Boolean   @default(false)
-  notified_at    DateTime?
-  created_by     Int?
-  created_at     DateTime  @default(now())
-  updated_at     DateTime  @updatedAt
+  id            Int       @id @default(autoincrement())
+  acara         String
+  lokasi        String
+  sebagai       String
+  tanggal_awal  DateTime
+  tanggal_akhir DateTime
+  is_notified   Boolean   @default(false)
+  notified_at   DateTime?
+  created_by    Int?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
 
-  creator            mst_users?                    @relation(fields: [created_by], references: [id])
+  creator             mst_users?                      @relation(fields: [created_by], references: [id])
   pendamping_pegawai  tr_jadwal_pendamping_pegawai[]
   pendamping_direktur tr_jadwal_pendamping_direktur[]
 
@@ -386,21 +388,21 @@ model tr_jadwal_pimpinan {
 }
 
 model tr_jadwal_pendamping_pegawai {
-  id              Int    @id @default(autoincrement())
-  jadwal_id       Int
-  pegawai_id     Int
+  id         Int @id @default(autoincrement())
+  jadwal_id  Int
+  pegawai_id Int
 
-  jadwal tr_jadwal_pimpinan @relation(fields: [jadwal_id], references: [id], onDelete: Cascade)
-  pegawai mst_pegawai       @relation(fields: [pegawai_id], references: [id])
+  jadwal  tr_jadwal_pimpinan @relation(fields: [jadwal_id], references: [id], onDelete: Cascade)
+  pegawai mst_pegawai        @relation(fields: [pegawai_id], references: [id])
 
   @@map("tr_jadwal_pendamping_pegawai")
 }
 
 model tr_jadwal_pendamping_direktur {
-  id              Int    @id @default(autoincrement())
-  jadwal_id       Int
-  kode_direktur   String // PKPS, PKTHA, PUPS, PPS
-  nama_direktur   String
+  id            Int    @id @default(autoincrement())
+  jadwal_id     Int
+  kode_direktur String // PKPS, PKTHA, PUPS, PPS
+  nama_direktur String
 
   jadwal tr_jadwal_pimpinan @relation(fields: [jadwal_id], references: [id], onDelete: Cascade)
 
@@ -448,65 +450,67 @@ enum notif_status {
 
 // SK Document
 model tr_sk_perhutanan {
-  id               Int       @id @default(autoincrement())
-  nomor_surat      String?
-  tanggal_surat    DateTime?
-  tanggal_terima   DateTime
-  tanggal_deadline DateTime
+  id                 Int       @id @default(autoincrement())
+  nomor_surat        String?
+  tanggal_surat      DateTime?
+  tanggal_terima     DateTime
+  tanggal_deadline   DateTime
   deadline_paused_at DateTime? // Tanggal deadline dihentikan hitungannya
-  unit_pengusul    String    // PKPS / PKTHA
-  perihal          String
-  tujuan_surat     String
-  konseptor_id     Int?
-  konseptor        String?  // Input manual nama konseptor
-  penandatangan    String?
-  nomor_nd_sk      String?
-  tanggal_nd_sk    DateTime?
-  nomor_sk         String?
-  tanggal_sk       DateTime?
+  unit_pengusul      String // PKPS / PKTHA
+  perihal            String
+  tujuan_surat       String
+  konseptor_id       Int?
+  konseptor          String? // Input manual nama konseptor
+  penandatangan      String?
+  nomor_nd_sk        String?
+  tanggal_nd_sk      DateTime?
+  nomor_sk           String?
+  tanggal_sk         DateTime?
 
   // Data Lokasi
-  provinsi         String?
-  kabupaten        String?
-  kecamatan        String?
-  desa             String?
-  skema            String?
-  kelompok_ps      String?
-  luas             Decimal?
-  jml_kk          Int?
+  provinsi    String?
+  kabupaten   String?
+  kecamatan   String?
+  desa        String?
+  skema       String?
+  kelompok_ps String?
+  luas        Decimal?
+  jml_kk      Int?
 
-  status           sk_status @default(DRAFT)
-  current_step     Int       @default(1)
-  created_by       Int?
-  created_at       DateTime  @default(now())
-  updated_at       DateTime  @updatedAt
+  status       sk_status @default(DRAFT)
+  current_step Int       @default(1)
+  created_by   Int?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
 
-  creator          mst_users?              @relation("SKCreator", fields: [konseptor_id], references: [id])
-  stages           tr_sk_workflow[]
-  dispositions     tr_sk_disposition[]
-  notifications    tr_sk_notification[]
+  creator         mst_users?           @relation("SKCreator", fields: [konseptor_id], references: [id])
+  stages          tr_sk_workflow[]
+  dispositions    tr_sk_disposition[]
+  notifications   tr_sk_notification[]
+  catatan_history tr_sk_catatan[]
 
   @@map("tr_sk_perhutanan")
 }
 
 // Workflow Stage Tracking
 model tr_sk_workflow {
-  id            Int       @id @default(autoincrement())
-  sk_id         Int
-  step_num      Int       // 1-15
-  step_name     String
-  jabatan_code  String    // SEKDITJEN_PS, KABAG_PEHKT, etc.
-  assignee_id   Int?      // User yang ditugaskan
-  action        String?   // DISPOSISI, REVIEW, APPROVE, REVISION, SIGN, ARCHIVE
-  catatan       String?
-  kesimpulan    String?   // DISETUJUI / PERBAIKAN
-  is_completed  Boolean   @default(false)
-  completed_at  DateTime?
-  completed_by  Int?
-  created_at    DateTime  @default(now())
+  id           Int       @id @default(autoincrement())
+  sk_id        Int
+  step_num     Int // 1-15
+  step_name    String
+  jabatan_code String // SEKDITJEN_PS, KABAG_PEHKT, etc.
+  assignee_id  Int? // User yang ditugaskan
+  action       String? // DISPOSISI, REVIEW, APPROVE, REVISION, SIGN, ARCHIVE
+  kesimpulan   String? // DISETUJUI / PERBAIKAN
+  is_completed Boolean   @default(false)
+  completed_at DateTime?
+  completed_by Int?
+  created_at   DateTime  @default(now())
 
-  sk            tr_sk_perhutanan @relation(fields: [sk_id], references: [id], onDelete: Cascade)
-  assignee      mst_users?       @relation("SKAssignee", fields: [assignee_id], references: [id])
+  sk              tr_sk_perhutanan @relation(fields: [sk_id], references: [id], onDelete: Cascade)
+  assignee        mst_users?       @relation("SKAssignee", fields: [assignee_id], references: [id])
+  completedByUser mst_users?       @relation("SKCompletedBy", fields: [completed_by], references: [id])
+  catatan_list    tr_sk_catatan[]  @relation("WorkflowCatatan")
 
   @@index([sk_id, step_num])
   @@map("tr_sk_workflow")
@@ -514,47 +518,64 @@ model tr_sk_workflow {
 
 // Disposition History
 model tr_sk_disposition {
-  id            Int       @id @default(autoincrement())
-  sk_id         Int
-  step_num      Int
-  from_jabatan  String
-  to_jabatan    String
-  catatan       String?
-  created_at    DateTime  @default(now())
-  created_by    Int?
+  id           Int      @id @default(autoincrement())
+  sk_id        Int
+  step_num     Int
+  from_jabatan String
+  to_jabatan   String
+  catatan      String?
+  created_at   DateTime @default(now())
+  created_by   Int?
 
-  sk            tr_sk_perhutanan @relation(fields: [sk_id], references: [id], onDelete: Cascade)
+  sk tr_sk_perhutanan @relation(fields: [sk_id], references: [id], onDelete: Cascade)
 
   @@map("tr_sk_disposition")
 }
 
 // WhatsApp Notification Log for SK
 model tr_sk_notification {
-  id            Int       @id @default(autoincrement())
-  sk_id         Int
-  recipient_id  Int
-  phone         String
-  message       String
-  status        notif_status @default(PENDING)
-  sent_at       DateTime?
-  error         String?
-  created_at    DateTime  @default(now())
+  id           Int          @id @default(autoincrement())
+  sk_id        Int
+  recipient_id Int
+  phone        String
+  message      String
+  status       notif_status @default(PENDING)
+  sent_at      DateTime?
+  error        String?
+  created_at   DateTime     @default(now())
 
-  sk            tr_sk_perhutanan @relation(fields: [sk_id], references: [id], onDelete: Cascade)
-  recipient     mst_users     @relation("SKNotificationRecipient", fields: [recipient_id], references: [id], map: "recipient_user_fk")
+  sk        tr_sk_perhutanan @relation(fields: [sk_id], references: [id], onDelete: Cascade)
+  recipient mst_users        @relation("SKNotificationRecipient", fields: [recipient_id], references: [id], map: "recipient_user_fk")
 
   @@map("tr_sk_notification")
 }
 
+// Catatan History - stores each catatan as separate entry with timestamp
+model tr_sk_catatan {
+  id         Int      @id @default(autoincrement())
+  sk_id      Int
+  step_num   Int // The workflow step this catatan belongs to
+  user_id    Int
+  catatan    String
+  created_at DateTime @default(now())
+
+  sk        tr_sk_perhutanan @relation(fields: [sk_id], references: [id], onDelete: Cascade)
+  user      mst_users        @relation(fields: [user_id], references: [id])
+  workflow  tr_sk_workflow?  @relation("WorkflowCatatan", fields: [sk_id, step_num], references: [sk_id, step_num])
+
+  @@index([sk_id, step_num])
+  @@map("tr_sk_catatan")
+}
+
 // Jabatan Assignment - maps users to Jabatan codes
 model tr_jabatan_assignment {
-  id           Int       @id @default(autoincrement())
+  id           Int      @id @default(autoincrement())
   user_id      Int
-  jabatan_code String    // SEKDITJEN_PS, KABAG_PEHKT, ANGGOTA_POKJA_HUKUM, etc.
-  is_active    Boolean   @default(true)
-  created_at   DateTime  @default(now())
+  jabatan_code String // SEKDITJEN_PS, KABAG_PEHKT, ANGGOTA_POKJA_HUKUM, etc.
+  is_active    Boolean  @default(true)
+  created_at   DateTime @default(now())
 
-  user         mst_users @relation(fields: [user_id], references: [id])
+  user mst_users @relation(fields: [user_id], references: [id])
 
   @@unique([user_id, jabatan_code])
   @@map("tr_jabatan_assignment")

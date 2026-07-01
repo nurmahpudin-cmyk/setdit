@@ -43,13 +43,24 @@ export interface SKWorkflowStage {
   jabatan_code: string;
   assignee_id?: number;
   action?: string;
-  catatan?: string;
   kesimpulan?: string;
   is_completed: boolean;
   completed_at?: string;
   completed_by?: number;
   created_at: string;
   assignee?: { id: number; fullname: string };
+  completedByUser?: { id: number; fullname: string };
+  catatan_list?: SKCatatan[];
+}
+
+export interface SKCatatan {
+  id: number;
+  sk_id: number;
+  step_num: number;
+  user_id: number;
+  catatan: string;
+  created_at: string;
+  user?: { id: number; fullname: string };
 }
 
 export interface SKDisposition {

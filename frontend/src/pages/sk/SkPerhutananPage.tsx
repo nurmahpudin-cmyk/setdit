@@ -19,10 +19,9 @@ import {
   Col,
   Grid,
   Dropdown,
+  Typography,
   Divider as AntDivider,
-  Empty,
 } from 'antd';
-import { Typography } from 'antd';
 import {
   PlusOutlined,
   CheckOutlined,
@@ -42,7 +41,7 @@ import { externalApi, KelompokPS } from '../../api/external';
 import { useAppSelector } from '../../hooks/useRedux';
 
 const { useBreakpoint } = Grid;
-
+const { Text, Title } = Typography;
 const { TextArea } = Input;
 
 // Workflow steps display configuration
@@ -226,11 +225,17 @@ export default function SkPerhutananPage() {
   const handleView = async (record: SKPerhutanan) => {
     try {
       const res = await skPerhutananApi.getById(record.id);
-      setSelectedSK(res.data.data);
+      const skData = res.data.data;
+      setSelectedSK(skData);
       setDetailVisible(true);
 
+      // Fetch kabkota if provinsi is set
+      if (skData.provinsi) {
+        fetchKabkotaByProvinsi(skData.provinsi);
+      }
+
       // Fetch users for distribusi step
-      if (res.data.data.current_step === 4) {
+      if (skData.current_step === 4) {
         const usersRes = await skPerhutananApi.getUsersByJabatan('ANGGOTA_POKJA_HUKUM');
         setAnggotaUsers(usersRes.data.data || []);
       }
@@ -297,6 +302,21 @@ export default function SkPerhutananPage() {
   const getStepName = (stepNum: number) => {
     const step = WORKFLOW_STEPS.find(s => s.num === stepNum);
     return step?.name || `Step ${stepNum}`;
+  };
+
+  const getProvinsiName = (proid: string) => {
+    const prov = provinsiList.find(p => p.proid === proid);
+    return prov?.provinsi || proid;
+  };
+
+  const getKabkotaName = (kabid: string) => {
+    const kab = kabkotaList.find(k => k.kabid === kabid);
+    return kab?.kabkota || kabid;
+  };
+
+  const getSkemaName = (skemaId: string | number) => {
+    const skema = skemaList.find(s => String(s.id_skema) === String(skemaId));
+    return skema?.nama_skema || skemaId;
   };
 
   const isOverdue = (deadline: string, status: string) => {
@@ -469,7 +489,7 @@ export default function SkPerhutananPage() {
       >
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
           <Divider />
-          <Typography.Title level={5}>Data Lokasi</Typography.Title>
+          <Title level={5}>Data Lokasi</Title>
 
           <Row gutter={[16, 0]}>
             <Col xs={24} sm={8}>
@@ -574,7 +594,7 @@ export default function SkPerhutananPage() {
           </Row>
 
           <Divider />
-          <Typography.Title level={5}>Data Surat</Typography.Title>
+          <Title level={5}>Data Surat</Title>
 
           <Row gutter={[16, 0]}>
             <Col xs={24} sm={8}>
@@ -681,38 +701,38 @@ export default function SkPerhutananPage() {
                 children: (
                   <div>
                     {/* Data Lokasi */}
-                    <Typography.Title level={5} style={{ marginBottom: 12 }}>Data Lokasi</Typography.Title>
+                    <Title level={5} style={{ marginBottom: 12 }}>Data Lokasi</Title>
                     <Row gutter={[16, 8]}>
                       <Col xs={24} sm={12}>
-                        <Typography.Text type="secondary">Provinsi:</Typography.Text>
-                        <div>{selectedSK.provinsi || '-'}</div>
+                        <Text type="secondary">Provinsi:</Text>
+                        <div>{selectedSK.provinsi ? getProvinsiName(selectedSK.provinsi) : '-'}</div>
                       </Col>
                       <Col xs={24} sm={12}>
-                        <Typography.Text type="secondary">Kabupaten/Kota:</Typography.Text>
-                        <div>{selectedSK.kabupaten || '-'}</div>
+                        <Text type="secondary">Kabupaten/Kota:</Text>
+                        <div>{selectedSK.kabupaten ? getKabkotaName(selectedSK.kabupaten) : '-'}</div>
                       </Col>
                       <Col xs={24} sm={12}>
-                        <Typography.Text type="secondary">Kecamatan:</Typography.Text>
+                        <Text type="secondary">Kecamatan:</Text>
                         <div>{selectedSK.kecamatan || '-'}</div>
                       </Col>
                       <Col xs={24} sm={12}>
-                        <Typography.Text type="secondary">Desa:</Typography.Text>
+                        <Text type="secondary">Desa:</Text>
                         <div>{selectedSK.desa || '-'}</div>
                       </Col>
                       <Col xs={24} sm={12}>
-                        <Typography.Text type="secondary">Skema:</Typography.Text>
-                        <div>{selectedSK.skema || '-'}</div>
+                        <Text type="secondary">Skema:</Text>
+                        <div>{selectedSK.skema ? getSkemaName(selectedSK.skema) : '-'}</div>
                       </Col>
                       <Col xs={24} sm={12}>
-                        <Typography.Text type="secondary">Kelompok PS:</Typography.Text>
+                        <Text type="secondary">Kelompok PS:</Text>
                         <div>{selectedSK.kelompok_ps || '-'}</div>
                       </Col>
                       <Col xs={24} sm={8}>
-                        <Typography.Text type="secondary">Luas (Ha):</Typography.Text>
+                        <Text type="secondary">Luas (Ha):</Text>
                         <div>{selectedSK.luas ? `${selectedSK.luas} Ha` : '-'}</div>
                       </Col>
                       <Col xs={24} sm={8}>
-                        <Typography.Text type="secondary">Jumlah KK:</Typography.Text>
+                        <Text type="secondary">Jumlah KK:</Text>
                         <div>{selectedSK.jml_kk || '-'}</div>
                       </Col>
                     </Row>
@@ -720,26 +740,26 @@ export default function SkPerhutananPage() {
                     <Divider />
 
                     {/* Data Surat */}
-                    <Typography.Title level={5} style={{ marginBottom: 12 }}>Data Surat</Typography.Title>
+                    <Title level={5} style={{ marginBottom: 12 }}>Data Surat</Title>
                     <Row gutter={[16, 8]}>
                       <Col xs={24} sm={12}>
-                        <Typography.Text type="secondary">Nomor Surat/ND:</Typography.Text>
+                        <Text type="secondary">Nomor Surat/ND:</Text>
                         <div>{selectedSK.nomor_surat || '-'}</div>
                       </Col>
                       <Col xs={24} sm={12}>
-                        <Typography.Text type="secondary">Tanggal Surat/ND:</Typography.Text>
+                        <Text type="secondary">Tanggal Surat/ND:</Text>
                         <div>{selectedSK.tanggal_surat ? dayjs(selectedSK.tanggal_surat).format('DD/MM/YYYY') : '-'}</div>
                       </Col>
                       <Col xs={24} sm={12}>
-                        <Typography.Text type="secondary">Unit Pengusul:</Typography.Text>
+                        <Text type="secondary">Unit Pengusul:</Text>
                         <div>{selectedSK.unit_pengusul}</div>
                       </Col>
                       <Col xs={24} sm={12}>
-                        <Typography.Text type="secondary">Tanggal Terima:</Typography.Text>
+                        <Text type="secondary">Tanggal Terima:</Text>
                         <div>{dayjs(selectedSK.tanggal_terima).format('DD/MM/YYYY')}</div>
                       </Col>
                       <Col xs={24} sm={12}>
-                        <Typography.Text type="secondary">Deadline:</Typography.Text>
+                        <Text type="secondary">Deadline:</Text>
                         <div>
                           <Space>
                             {dayjs(selectedSK.tanggal_deadline).format('DD/MM/YYYY')}
@@ -750,7 +770,7 @@ export default function SkPerhutananPage() {
                         </div>
                       </Col>
                       <Col xs={24} sm={12}>
-                        <Typography.Text type="secondary">Status:</Typography.Text>
+                        <Text type="secondary">Status:</Text>
                         <div>
                           <Tag color={getStatusColor(selectedSK.status)}>
                             {getStatusText(selectedSK.status)}
@@ -759,19 +779,19 @@ export default function SkPerhutananPage() {
                         </div>
                       </Col>
                       <Col xs={24}>
-                        <Typography.Text type="secondary">Perihal:</Typography.Text>
+                        <Text type="secondary">Perihal:</Text>
                         <div>{selectedSK.perihal}</div>
                       </Col>
                       <Col xs={24}>
-                        <Typography.Text type="secondary">Tujuan Surat:</Typography.Text>
+                        <Text type="secondary">Tujuan Surat:</Text>
                         <div>{selectedSK.tujuan_surat || '-'}</div>
                       </Col>
                       <Col xs={24} sm={12}>
-                        <Typography.Text type="secondary">Penandatangan:</Typography.Text>
+                        <Text type="secondary">Penandatangan:</Text>
                         <div>{selectedSK.penandatangan || '-'}</div>
                       </Col>
                       <Col xs={24} sm={12}>
-                        <Typography.Text type="secondary">Konseptor:</Typography.Text>
+                        <Text type="secondary">Konseptor:</Text>
                         <div>{selectedSK.creator?.fullname || '-'}</div>
                       </Col>
                     </Row>
@@ -779,22 +799,22 @@ export default function SkPerhutananPage() {
                     {selectedSK.nomor_nd_sk && (
                       <>
                         <Divider />
-                        <Typography.Title level={5} style={{ marginBottom: 12 }}>Nomor ND & SK</Typography.Title>
+                        <Title level={5} style={{ marginBottom: 12 }}>Nomor ND & SK</Title>
                         <Row gutter={[16, 8]}>
                           <Col xs={24} sm={12}>
-                            <Typography.Text type="secondary">Nomor ND:</Typography.Text>
+                            <Text type="secondary">Nomor ND:</Text>
                             <div>{selectedSK.nomor_nd_sk}</div>
                           </Col>
                           <Col xs={24} sm={12}>
-                            <Typography.Text type="secondary">Tanggal ND:</Typography.Text>
+                            <Text type="secondary">Tanggal ND:</Text>
                             <div>{selectedSK.tanggal_nd_sk ? dayjs(selectedSK.tanggal_nd_sk).format('DD/MM/YYYY') : '-'}</div>
                           </Col>
                           <Col xs={24} sm={12}>
-                            <Typography.Text type="secondary">Nomor SK:</Typography.Text>
+                            <Text type="secondary">Nomor SK:</Text>
                             <div>{selectedSK.nomor_sk || '-'}</div>
                           </Col>
                           <Col xs={24} sm={12}>
-                            <Typography.Text type="secondary">Tanggal SK:</Typography.Text>
+                            <Text type="secondary">Tanggal SK:</Text>
                             <div>{selectedSK.tanggal_sk ? dayjs(selectedSK.tanggal_sk).format('DD/MM/YYYY') : '-'}</div>
                           </Col>
                         </Row>
@@ -802,37 +822,34 @@ export default function SkPerhutananPage() {
                     )}
 
                     {/* Riwayat Catatan */}
-                    {selectedSK.stages && selectedSK.stages.some(s => s.catatan) && (
+                    {selectedSK.stages && selectedSK.stages.some(s => s.catatan && s.catatan.length > 0) && (
                       <>
                         <Divider />
-                        <Typography.Title level={5} style={{ marginBottom: 12 }}>Riwayat Catatan</Typography.Title>
+                        <Title level={5} style={{ marginBottom: 12 }}>Riwayat Catatan</Title>
                         <Timeline
                           items={selectedSK.stages
-                            .filter(s => s.catatan)
-                            .map(stage => ({
-                              color: stage.kesimpulan === 'DISETUJUI' ? 'green' : stage.kesimpulan === 'PERBAIKAN' ? 'orange' : 'blue',
+                            .filter(s => s.catatan && s.catatan.length > 0)
+                            .flatMap(stage => stage.catatan?.map(c => ({
+                              color: stage.kesimpulan === 'DISETUJUI' ? 'green' : stage.kesimpulan === 'PERBAIKAN' || stage.kesimpulan === 'PERBAIKAN_DIREKTORAT' ? 'orange' : 'blue',
                               children: (
                                 <div>
                                   <Space>
-                                    <Tag color={stage.kesimpulan === 'DISETUJUI' ? 'success' : stage.kesimpulan === 'PERBAIKAN' ? 'warning' : 'processing'}>
+                                    <Tag color={stage.kesimpulan === 'DISETUJUI' ? 'success' : stage.kesimpulan === 'PERBAIKAN' || stage.kesimpulan === 'PERBAIKAN_DIREKTORAT' ? 'warning' : 'processing'}>
                                       {stage.step_name}
                                     </Tag>
-                                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                                      {dayjs(stage.completed_at).format('DD/MM/YYYY HH:mm')}
-                                    </Typography.Text>
+                                    <Text type="secondary" style={{ fontSize: 12 }}>
+                                      {dayjs(c.created_at).format('DD/MM/YYYY HH:mm')}
+                                    </Text>
                                   </Space>
-                                  <div style={{ marginTop: 4 }}>
-                                    <Typography.Text type="secondary">Kesimpulan: </Typography.Text>
-                                    <Tag color={stage.kesimpulan === 'DISETUJUI' ? 'success' : 'warning'}>
-                                      {stage.kesimpulan === 'DISETUJUI' ? 'Disetujui' : stage.kesimpulan === 'PERBAIKAN' ? 'Perbaikan' : '-'}
-                                    </Tag>
+                                  <div style={{ marginTop: 4, fontWeight: 500, color: '#1890ff' }}>
+                                    {c.user?.fullname || 'Unknown'}
                                   </div>
                                   <div style={{ marginTop: 4, fontStyle: 'italic', color: '#666' }}>
-                                    "{stage.catatan}"
+                                    "{c.catatan}"
                                   </div>
                                 </div>
                               ),
-                            }))}
+                            })) || [])}
                         />
                       </>
                     )}
@@ -869,53 +886,88 @@ export default function SkPerhutananPage() {
                           </Tag>
                         </Col>
                         <Col>
-                          <Typography.Text strong>{WORKFLOW_STEPS.find(s => s.num === selectedSK.current_step)?.name}</Typography.Text>
+                          <Text strong>{WORKFLOW_STEPS.find(s => s.num === selectedSK.current_step)?.name}</Text>
                         </Col>
                       </Row>
                     </Card>
 
-                    {/* Detail per Step */}
-                    <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-                      {selectedSK.stages?.filter(s => s.is_completed).map(stage => (
-                        <Col xs={24} sm={12} md={8} key={stage.id}>
-                          <Card
-                            size="small"
-                            title={
-                              <Space>
-                                <Tag color={stage.kesimpulan === 'DISETUJUI' ? 'success' : 'warning'}>{stage.step_num}</Tag>
-                                <Typography.Text>{stage.step_name}</Typography.Text>
-                              </Space>
-                            }
-                            extra={
-                              <Tag color={stage.kesimpulan === 'DISETUJUI' ? 'success' : 'warning'}>
-                                {stage.kesimpulan === 'DISETUJUI' ? 'OK' : 'Revisi'}
-                              </Tag>
-                            }
-                            styles={{ body: { padding: 12 } }}
-                          >
-                            <Space direction="vertical" size={4}>
-                              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                                {dayjs(stage.completed_at).format('DD/MM/YYYY HH:mm')}
-                              </Typography.Text>
-                              {stage.assignee && (
-                                <Typography.Text style={{ fontSize: 12 }}>
-                                  Oleh: {stage.assignee.fullname}
-                                </Typography.Text>
-                              )}
-                              {stage.catatan && (
-                                <Typography.Text style={{ fontSize: 12, fontStyle: 'italic', color: '#666' }}>
-                                  "{stage.catatan}"
-                                </Typography.Text>
-                              )}
-                            </Space>
-                          </Card>
-                        </Col>
-                      ))}
-                    </Row>
-
-                    {(!selectedSK.stages || selectedSK.stages.length === 0) && (
-                      <Empty description="Belum ada proses workflow" style={{ marginTop: 40 }} />
-                    )}
+                    {/* Detail per Step - Tabel Riwayat */}
+                    <div style={{ marginTop: 24 }}>
+                      <Title level={5}>Riwayat Proses</Title>
+                      <div style={{ overflowX: 'auto' }}>
+                        <Table
+                          dataSource={selectedSK.stages?.filter(s => s.is_completed).map((stage, idx) => ({
+                            ...stage,
+                            key: stage.id,
+                            no: idx + 1,
+                          }))}
+                          columns={[
+                            {
+                              title: 'No',
+                              dataIndex: 'no',
+                              width: 50,
+                              responsive: ['sm'],
+                            },
+                            {
+                              title: 'Tanggal',
+                              dataIndex: 'completed_at',
+                              width: 140,
+                              render: (val: string) => dayjs(val).format('DD/MM/YYYY HH:mm'),
+                            },
+                            {
+                              title: 'User - Jabatan',
+                              width: 180,
+                              render: (_: any, record: any) => (
+                                <div>
+                                  <div>{record.completedByUser?.fullname || record.assignee?.fullname || '-'}</div>
+                                  <Text type="secondary" style={{ fontSize: 11 }}>
+                                    {record.step_name}
+                                  </Text>
+                                </div>
+                              ),
+                            },
+                            {
+                              title: 'Kesimpulan',
+                              dataIndex: 'kesimpulan',
+                              width: 120,
+                              render: (val: string) => {
+                                const color = val === 'DISETUJUI' ? 'success' : val === 'PERBAIKAN' || val === 'PERBAIKAN_DIREKTORAT' ? 'warning' : 'default';
+                                const label = val === 'DISETUJUI' ? 'OK' : val === 'PERBAIKAN' ? 'Revisi' : val === 'PERBAIKAN_DIREKTORAT' ? 'Perbaikan' : '-';
+                                return <Tag color={color}>{label}</Tag>;
+                              },
+                            },
+                            {
+                              title: 'Catatan',
+                              dataIndex: 'catatan',
+                              width: 300,
+                              render: (_: any, record: any) => {
+                                const catatanList = record.catatan || [];
+                                if (catatanList.length === 0) return '-';
+                                return (
+                                  <div style={{ fontSize: 11, maxHeight: 150, overflowY: 'auto' }}>
+                                    {catatanList.map((c: any, idx: number) => (
+                                      <div key={c.id || idx} style={{ marginBottom: 6, padding: '4px 8px', background: '#f5f5f5', borderRadius: 4 }}>
+                                        <div style={{ fontWeight: 500, color: '#1890ff' }}>
+                                          {c.user?.fullname || 'Unknown'}
+                                        </div>
+                                        <div style={{ color: '#666', fontSize: 10, marginBottom: 2 }}>
+                                          {dayjs(c.created_at).format('DD/MM/YYYY HH:mm')}
+                                        </div>
+                                        <div>{c.catatan}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              },
+                            },
+                          ]}
+                          pagination={false}
+                          size="small"
+                          scroll={{ x: 600 }}
+                          locale={{ emptyText: 'Belum ada proses workflow' }}
+                        />
+                      </div>
+                    </div>
                   </div>
                 ),
               },
@@ -966,7 +1018,52 @@ export default function SkPerhutananPage() {
             </Form.Item>
           )}
 
-          {selectedSK?.current_step !== 5 && (
+          {selectedSK?.current_step === 2 && (
+            <Form.Item
+              name="kesimpulan"
+              label="Kesimpulan"
+              initialValue="DISETUJUI"
+              rules={[{ required: true, message: 'Harus dipilih' }]}
+            >
+              <Select
+                options={[
+                  { label: 'Disposisi', value: 'DISETUJUI' }
+                ]}
+              />
+            </Form.Item>
+          )}
+
+          {selectedSK?.current_step === 3 && (
+            <Form.Item
+              name="kesimpulan"
+              label="Kesimpulan"
+              initialValue="DISETUJUI"
+              rules={[{ required: true, message: 'Harus dipilih' }]}
+            >
+              <Select
+                options={[
+                  { label: 'Disposisi', value: 'DISETUJUI' },
+                ]}
+              />
+            </Form.Item>
+          )}
+
+          {selectedSK?.current_step === 4 && (
+            <Form.Item
+              name="kesimpulan"
+              label="Kesimpulan"
+              initialValue="DISETUJUI"
+              rules={[{ required: true, message: 'Harus dipilih' }]}
+            >
+              <Select
+                options={[
+                  { label: 'Distribusi', value: 'DISETUJUI' },
+                ]}
+              />
+            </Form.Item>
+          )}
+
+          {selectedSK?.current_step === 6 && (
             <Form.Item
               name="kesimpulan"
               label="Kesimpulan"
@@ -974,8 +1071,8 @@ export default function SkPerhutananPage() {
             >
               <Select
                 options={[
-                  { label: 'DISETUJUI - Lanjut ke tahap berikutnya', value: 'DISETUJUI' },
-                  { label: 'PERBAIKAN - Kembalikan ke Anggota Pokja', value: 'PERBAIKAN' },
+                  { label: 'Disetujui - Lanjut ke tahap berikutnya', value: 'DISETUJUI' },
+                  { label: 'Perbaikan ke Anggota', value: 'PERBAIKAN' },
                 ]}
               />
             </Form.Item>
