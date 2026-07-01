@@ -12,6 +12,7 @@ export interface AuthUser {
   unit?: { id: number; name: string };
   roles?: { role: { id: number; name: string } }[];
   effectivePermissions?: string[];
+  jabatan_codes?: string[];
 }
 
 interface AuthState {
@@ -23,9 +24,10 @@ interface AuthState {
 }
 
 const accessToken = localStorage.getItem('accessToken');
+const userData = localStorage.getItem('user');
 
 const initialState: AuthState = {
-  user: null,
+  user: userData ? JSON.parse(userData) : null,
   accessToken,
   refreshToken: localStorage.getItem('refreshToken'),
   isAuthenticated: !!accessToken,
@@ -48,9 +50,11 @@ const authSlice = createSlice({
 
       localStorage.setItem('accessToken', action.payload.accessToken);
       localStorage.setItem('refreshToken', action.payload.refreshToken);
+      localStorage.setItem('user', JSON.stringify(action.payload.user));
     },
     setUser: (state, action: PayloadAction<AuthUser>) => {
       state.user = action.payload;
+      localStorage.setItem('user', JSON.stringify(action.payload));
     },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload;
@@ -64,6 +68,7 @@ const authSlice = createSlice({
 
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
     },
   },
 });

@@ -35,9 +35,10 @@ router.use(authMiddleware);
  *         schema:
  *           type: string
  *       - in: query
- *         name: step
+ *         name: jabatan_code
  *         schema:
  *           type: string
+ *         description: Filter by user's jabatan code (e.g., SEKDITJEN_PS, TU_SETDITJEN)
  *     responses:
  *       200:
  *         description: List of SK Perhutanan

@@ -3,20 +3,20 @@ import { whatsappService } from '../whatsapp/service.js';
 
 // Workflow steps configuration
 export const WORKFLOW_STEPS = [
-  { num: 1,  name: 'Input Admin TU',          jabatan: null,           action: 'INPUT' },
-  { num: 2,  name: 'Setditjen PS',            jabatan: 'SEKDITJEN_PS',  action: 'DISPOSISI' },
-  { num: 3,  name: 'Kabag PEHK',              jabatan: 'KABAG_PEHKT',   action: 'DISPOSISI' },
-  { num: 4,  name: 'Ketua Pokja Hukum',        jabatan: 'KETUA_POKJA_HUKUM', action: 'DISTRIBUSI' },
-  { num: 5,  name: 'Anggota Pokja Hukum',      jabatan: 'ANGGOTA_POKJA_HUKUM', action: 'TELAAH' },
-  { num: 6,  name: 'Ketua Pokja Hukum',        jabatan: 'KETUA_POKJA_HUKUM', action: 'APPROVE' },
-  { num: 7,  name: 'Kabag PEHK',              jabatan: 'KABAG_PEHKT',   action: 'TELAAH' },
-  { num: 8,  name: 'TU Setditjen',            jabatan: 'TU_SETDITJEN',  action: 'TELAAH' },
-  { num: 9,  name: 'Admin TU Penomoran ND',   jabatan: null,           action: 'PENOMORAN' },
-  { num: 10, name: 'Dirjen PS',               jabatan: 'DIRJEN_PS',     action: 'SIGN' },
-  { num: 11, name: 'Admin TU Penomoran SK',   jabatan: null,           action: 'NOMOR_SK' },
-  { num: 12, name: 'Ketua Pokja Hukum',        jabatan: 'KETUA_POKJA_HUKUM', action: 'DISTRIBUSI' },
-  { num: 13, name: 'Anggota Pokja Hukum',      jabatan: 'ANGGOTA_POKJA_HUKUM', action: 'FINALIZE' },
-  { num: 14, name: 'Kabag PEHK TTD Salinan',  jabatan: 'KABAG_PEHKT',   action: 'SIGN_COPY' },
+  { num: 1,  name: 'Input Admin TU',          jabatan: null,              action: 'INPUT' },
+  { num: 2,  name: 'Setditjen PS',            jabatan: 'SEKDITJEN_PS',     action: 'DISPOSISI' },
+  { num: 3,  name: 'Kabag PEHK',              jabatan: 'KABAG_PEHKT',      action: 'DISPOSISI' },
+  { num: 4,  name: 'Distribusi Ke Anggota',  jabatan: 'KETUA_POKJA_HUKUM', action: 'DISTRIBUSI' },
+  { num: 5,  name: 'Telaah Anggota',          jabatan: 'ANGGOTA_POKJA_HUKUM', action: 'TELAAH' },
+  { num: 6,  name: 'Approve Ketua',            jabatan: 'KETUA_POKJA_HUKUM', action: 'APPROVE' },
+  { num: 7,  name: 'Kabag PEHK',              jabatan: 'KABAG_PEHKT',      action: 'TELAAH' },
+  { num: 8,  name: 'TU Setditjen',            jabatan: 'TU_SETDITJEN',     action: 'TELAAH' },
+  { num: 9,  name: 'Admin TU Penomoran ND',   jabatan: null,              action: 'PENOMORAN' },
+  { num: 10, name: 'Dirjen PS',               jabatan: 'DIRJEN_PS',        action: 'SIGN' },
+  { num: 11, name: 'Admin TU Penomoran SK',   jabatan: null,              action: 'NOMOR_SK' },
+  { num: 12, name: 'Distribusi SK',           jabatan: 'KETUA_POKJA_HUKUM', action: 'DISTRIBUSI' },
+  { num: 13, name: 'Finalisasi Anggota',      jabatan: 'ANGGOTA_POKJA_HUKUM', action: 'FINALIZE' },
+  { num: 14, name: 'Kabag PEHK TTD Salinan',  jabatan: 'KABAG_PEHKT',      action: 'SIGN_COPY' },
   { num: 15, name: 'Arsip & Scan',             jabatan: 'KETUA_POKJA_HUKUM', action: 'ARCHIVE' },
 ];
 
@@ -45,6 +45,8 @@ export class SkPerhutananService {
     unit_pengusul?: string;
     start_date?: string;
     end_date?: string;
+    jabatan_code?: string;
+    userId?: number;
   }) {
     const page = query.page || 1;
     const limit = query.limit || 10;
@@ -64,6 +66,39 @@ export class SkPerhutananService {
       where.status = query.status;
     }
 
+    // Filter by user's workflow step based on jabatan_code
+    if (query.jabatan_code) {
+      // Get all steps where this jabatan has a task
+      const stepsForJabatan = WORKFLOW_STEPS.filter(s => s.jabatan === query.jabatan_code);
+
+      if (stepsForJabatan.length > 0) {
+        const stepNumbers = stepsForJabatan.map(s => s.num);
+
+        // When no explicit status filter, show only relevant workflow stages
+        if (!query.status) {
+          if (query.jabatan_code === 'ANGGOTA_POKJA_HUKUM') {
+            // ANGGOTA_POKJA_HUKUM sees SKs where they are assigned as assignee at step 4
+            // AND current_step should be at their work step (5 or 13)
+            where.stages = {
+              some: {
+                step_num: 4,
+                assignee_id: query.userId,
+              },
+            };
+            where.current_step = { in: stepNumbers }; // steps 5 and 13
+            where.status = { in: ['IN_PROGRESS', 'WAITING_REVISION'] };
+          } else if (query.jabatan_code === 'TU_SETDITJEN') {
+            // TU_SETDITJEN can see ALL steps
+            where.status = { in: ['DRAFT', 'IN_PROGRESS', 'WAITING_REVISION'] };
+          } else {
+            // Others only see their steps in IN_PROGRESS or WAITING_REVISION
+            where.current_step = { in: stepNumbers };
+            where.status = { in: ['IN_PROGRESS', 'WAITING_REVISION'] };
+          }
+        }
+      }
+    }
+
     if (query.unit_pengusul) {
       where.unit_pengusul = query.unit_pengusul;
     }
@@ -75,6 +110,8 @@ export class SkPerhutananService {
     if (query.end_date) {
       where.tanggal_surat = { ...where.tanggal_surat, lte: new Date(query.end_date) };
     }
+
+    console.log('[DEBUG] Final WHERE:', JSON.stringify(where));
 
     const [skList, total] = await Promise.all([
       prisma.tr_sk_perhutanan.findMany({
@@ -143,6 +180,27 @@ export class SkPerhutananService {
     const tanggal_terima = new Date(data.tanggal_terima);
     const tanggal_deadline = addWorkingDays(tanggal_terima, 14);
 
+    // Resolve IDs to names for lokasi fields
+    let [provinsiName, kabupatenName, skemaName] = [data.provinsi, data.kabupaten, data.skema];
+
+    if (data.provinsi) {
+      const prov = await prisma.mst_provinsi.findUnique({ where: { proid: data.provinsi } });
+      if (prov) provinsiName = prov.provinsi;
+    }
+
+    if (data.kabupaten) {
+      const kab = await prisma.mst_kabkota.findUnique({ where: { kabid: data.kabupaten } });
+      if (kab) kabupatenName = kab.kabkota;
+    }
+
+    if (data.skema) {
+      const skemaId = parseInt(data.skema);
+      if (!isNaN(skemaId)) {
+        const skema = await prisma.mst_skema.findUnique({ where: { id_skema: skemaId } });
+        if (skema) skemaName = skema.nama_skema || data.skema;
+      }
+    }
+
     const sk = await prisma.tr_sk_perhutanan.create({
       data: {
         nomor_surat: data.nomor_surat,
@@ -155,11 +213,11 @@ export class SkPerhutananService {
         konseptor_id: data.konseptor_id ?? userId,
         konseptor: data.konseptor,
         penandatangan: data.penandatangan,
-        provinsi: data.provinsi,
-        kabupaten: data.kabupaten,
+        provinsi: provinsiName,
+        kabupaten: kabupatenName,
         kecamatan: data.kecamatan,
         desa: data.desa,
-        skema: data.skema,
+        skema: skemaName,
         kelompok_ps: data.kelompok_ps,
         luas: data.luas,
         jml_kk: data.jml_kk,
@@ -193,6 +251,26 @@ export class SkPerhutananService {
     if (!sk) throw new Error('SK not found');
 
     const updateData: any = { ...data };
+
+    // Resolve IDs to names for lokasi fields
+    if (data.provinsi) {
+      const prov = await prisma.mst_provinsi.findUnique({ where: { proid: data.provinsi } });
+      if (prov) updateData.provinsi = prov.provinsi;
+    }
+
+    if (data.kabupaten) {
+      const kab = await prisma.mst_kabkota.findUnique({ where: { kabid: data.kabupaten } });
+      if (kab) updateData.kabupaten = kab.kabkota;
+    }
+
+    if (data.skema) {
+      const skemaId = parseInt(data.skema);
+      if (!isNaN(skemaId)) {
+        const skema = await prisma.mst_skema.findUnique({ where: { id_skema: skemaId } });
+        if (skema) updateData.skema = skema.nama_skema || data.skema;
+      }
+    }
+
     if (data.tanggal_surat) {
       updateData.tanggal_surat = new Date(data.tanggal_surat);
     }
@@ -258,18 +336,87 @@ export class SkPerhutananService {
       data: {
         catatan: stepData.catatan,
         kesimpulan: stepData.kesimpulan,
-        assignee_id: stepData.assignee_id,
         is_completed: true,
         completed_at: new Date(),
         completed_by: userId,
       },
     });
 
-    // Handle based on kesimpulan
+    // Handle step 5 (Telaah Anggota) specific kesimpulan
+    if (sk.current_step === 5) {
+      if (stepData.kesimpulan === 'PERBAIKAN_DIREKTORAT') {
+        // Langsung kembali ke step 5 TELAAH_SUBSTANSI - deadline dihentikan hitungannya
+        await prisma.tr_sk_perhutanan.update({
+          where: { id },
+          data: {
+            status: 'WAITING_REVISION',
+            current_step: 5,
+            deadline_paused_at: new Date(), // Simpan tanggal jeda
+          },
+        });
+
+        return { message: 'Dikembalikan untuk perbaikan ke Direktorat', new_step: 5 };
+      }
+      // TELAAH_SUBSTANSI - lanjut ke step 6 (default behavior)
+    }
+
+    // Handle TELAAH_SUBSTANSI from step 5 (after PERBAIKAN_DIREKTORAT) - calculate new deadline
+    if (sk.current_step === 5 && stepData.kesimpulan === 'TELAAH_SUBSTANSI') {
+      let newDeadline: Date;
+
+      if (sk.deadline_paused_at && sk.tanggal_deadline) {
+        // Deadline pernah dihentikan
+        // Sisa hari kerja = hari kerja dari deadline_paused_at SAMPAI deadline asli (tidak termasuk deadline_paused_at)
+        const pausedAt = new Date(sk.deadline_paused_at);
+        const originalDeadline = new Date(sk.tanggal_deadline);
+
+        // Hitung sisa hari kerja dari tanggal setelah paused SAMPAI sebelum deadline
+        let remainingDays = 0;
+        let tempDate = new Date(pausedAt);
+        tempDate.setDate(tempDate.getDate() + 1);
+
+        while (tempDate < originalDeadline) {
+          const dayOfWeek = tempDate.getDay();
+          if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            remainingDays++;
+          }
+          tempDate.setDate(tempDate.getDate() + 1);
+        }
+
+        // Deadline baru = hari ini + sisa hari kerja
+        newDeadline = new Date();
+        let addedDays = 0;
+        while (addedDays < remainingDays) {
+          newDeadline.setDate(newDeadline.getDate() + 1);
+          const dayOfWeek = newDeadline.getDay();
+          if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            addedDays++;
+          }
+        }
+      } else {
+        // Deadline tidak pernah dihentikan
+        // Tetap lanjut ke step 6 dengan deadline yang sama
+        newDeadline = new Date(sk.tanggal_deadline);
+      }
+
+      await prisma.tr_sk_perhutanan.update({
+        where: { id },
+        data: {
+          status: 'IN_PROGRESS',
+          current_step: 6,
+          tanggal_deadline: newDeadline,
+          deadline_paused_at: null,
+        },
+      });
+
+      await this.createNextStage(id, 6);
+
+      return { message: 'Dilanjut ke Approve Ketua dengan deadline baru', new_step: 6 };
+    }
+
+    // Handle based on kesimpulan (for other steps)
     if (stepData.kesimpulan === 'PERBAIKAN') {
       // Go back to step 5 (Anggota Pokja Hukum)
-      const step5Config = WORKFLOW_STEPS.find(s => s.num === 5)!;
-
       await prisma.tr_sk_perhutanan.update({
         where: { id },
         data: {
@@ -318,8 +465,18 @@ export class SkPerhutananService {
       },
     });
 
-    // Create next stage if needed
+    // Create next stage if needed (MUST be before setting assignee_id)
     await this.createNextStage(id, newStep);
+
+    // For step 4 (distribusi), set assignee_id on current step (step 4)
+    if (sk.current_step === 4 && stepData.assignee_id) {
+      await prisma.tr_sk_workflow.updateMany({
+        where: { sk_id: id, step_num: sk.current_step },
+        data: {
+          assignee_id: stepData.assignee_id,
+        },
+      });
+    }
 
     // Create disposition
     await prisma.tr_sk_disposition.create({
@@ -336,7 +493,12 @@ export class SkPerhutananService {
     // Notify next assignee
     const nextJabatan = nextStepConfig.jabatan || currentStepConfig.jabatan;
     if (nextJabatan) {
-      await this.notifyJabatan(id, nextJabatan, `SK perlu ditindaklanjuti:\n${sk.perihal}`);
+      // For step 4 (distribusi), notify specific user
+      if (sk.current_step === 4 && stepData.assignee_id) {
+        await this.notifyUser(id, stepData.assignee_id, `SK perlu ditindaklanjuti:\n${sk.perihal}`);
+      } else {
+        await this.notifyJabatan(id, nextJabatan, `SK perlu ditindaklanjuti:\n${sk.perihal}`);
+      }
     }
 
     return { message: 'Moved to next step', new_step: newStep };
@@ -588,6 +750,48 @@ export class SkPerhutananService {
           });
         }
       }
+    }
+  }
+
+  // Helper: Send WhatsApp notification to specific user
+  private async notifyUser(skId: number, userId: number, message: string) {
+    const user = await prisma.mst_users.findUnique({
+      where: { id: userId },
+      select: { id: true, fullname: true, phone: true },
+    });
+
+    if (!user || !user.phone) return;
+
+    // Log notification
+    await prisma.tr_sk_notification.create({
+      data: {
+        sk_id: skId,
+        recipient_id: user.id,
+        phone: user.phone,
+        message,
+        status: 'PENDING',
+      },
+    });
+
+    // Send via WhatsApp
+    try {
+      const session = await prisma.wa_sessions.findFirst({
+        where: { is_active: true },
+      });
+
+      if (session) {
+        await whatsappService.sendMessage(session.id, user.phone, message, user.id);
+
+        await prisma.tr_sk_notification.updateMany({
+          where: { sk_id: skId, recipient_id: user.id, status: 'PENDING' },
+          data: { status: 'SENT', sent_at: new Date() },
+        });
+      }
+    } catch (error: any) {
+      await prisma.tr_sk_notification.updateMany({
+        where: { sk_id: skId, recipient_id: user.id, status: 'PENDING' },
+        data: { status: 'FAILED', error: error.message },
+      });
     }
   }
 }

@@ -20,8 +20,8 @@ const createSchema = z.object({
   desa: z.string().optional(),
   skema: z.string().optional(),
   kelompok_ps: z.string().optional(),
-  luas: z.number().optional(),
-  jml_kk: z.number().optional(),
+  luas: z.coerce.number().optional(),
+  jml_kk: z.coerce.number().optional(),
 });
 
 const updateSchema = z.object({
@@ -39,13 +39,13 @@ const updateSchema = z.object({
   desa: z.string().optional(),
   skema: z.string().optional(),
   kelompok_ps: z.string().optional(),
-  luas: z.number().optional(),
-  jml_kk: z.number().optional(),
+  luas: z.coerce.number().optional(),
+  jml_kk: z.coerce.number().optional(),
 });
 
 const processStepSchema = z.object({
   catatan: z.string().optional(),
-  kesimpulan: z.enum(['DISETUJUI', 'PERBAIKAN']).optional(),
+  kesimpulan: z.enum(['DISETUJUI', 'PERBAIKAN', 'TELAAH_SUBSTANSI', 'PERBAIKAN_DIREKTORAT']).optional(),
   assignee_id: z.number().optional(),
 });
 
@@ -62,7 +62,9 @@ const nomorSKSchema = z.object({
 export class SkPerhutananController {
   async findAll(req: Request, res: Response) {
     try {
-      const { page, limit, search, status, unit_pengusul, start_date, end_date } = req.query;
+      const { page, limit, search, status, unit_pengusul, start_date, end_date, jabatan_code } = req.query;
+      const authReq = req as AuthRequest;
+      const userId = authReq.user?.id;
 
       const result = await skPerhutananService.findAll({
         page: page ? parseInt(String(page)) : undefined,
@@ -72,6 +74,8 @@ export class SkPerhutananController {
         unit_pengusul: unit_pengusul ? String(unit_pengusul) : undefined,
         start_date: start_date ? String(start_date) : undefined,
         end_date: end_date ? String(end_date) : undefined,
+        jabatan_code: jabatan_code ? String(jabatan_code) : undefined,
+        userId,
       });
 
       paginatedResponse(res, result.items, result.pagination);

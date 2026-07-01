@@ -91,6 +91,8 @@ export interface SKQuery {
   unit_pengusul?: string;
   start_date?: string;
   end_date?: string;
+  jabatan_code?: string;
+  userId?: number;
 }
 
 // API Functions

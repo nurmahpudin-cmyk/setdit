@@ -115,10 +115,20 @@ export class AuthService {
     // Store refresh token
     refreshTokenCache.set(`refresh:${user.id}`, tokens.refreshToken, 7 * 24 * 60 * 60);
 
+    // Get user's jabatan assignments
+    const jabatanAssignments = await prisma.tr_jabatan_assignment.findMany({
+      where: { user_id: user.id, is_active: true },
+      select: { jabatan_code: true },
+    });
+    const jabatan_codes = jabatanAssignments.map(ja => ja.jabatan_code);
+    console.log('[LOGIN DEBUG] User ID:', user.id);
+    console.log('[LOGIN DEBUG] Jabatan assignments:', jabatanAssignments);
+    console.log('[LOGIN DEBUG] jabatan_codes:', jabatan_codes);
+
     await createAuditLog(req, 'auth', 'login');
 
     return {
-      user: this.sanitizeUser(user),
+      user: { ...this.sanitizeUser(user), jabatan_codes },
       ...tokens,
     };
   }
@@ -309,6 +319,10 @@ export class AuthService {
           },
         },
         permissions: { include: { permission: true } },
+        jabatan_assignments: {
+          where: { is_active: true },
+          select: { jabatan_code: true },
+        },
       },
     });
 
@@ -323,8 +337,11 @@ export class AuthService {
     const directPerms = user.permissions.map((up) => up.permission.code);
     const effectivePermissions = [...new Set([...rolePerms, ...directPerms])];
 
+    // Extract jabatan codes
+    const jabatan_codes = user.jabatan_assignments.map((ja) => ja.jabatan_code);
+
     const sanitized = this.sanitizeUser(user);
-    return { ...sanitized, effectivePermissions };
+    return { ...sanitized, effectivePermissions, jabatan_codes };
   }
 
   private generateTokens(user: any) {
