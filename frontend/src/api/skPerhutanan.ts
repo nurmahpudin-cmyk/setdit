@@ -125,7 +125,15 @@ export const skPerhutananApi = {
 
   // Workflow Actions
   submit: (id: number) => api.post(`/sk-perhutanan/${id}/submit`),
-  processStep: (id: number, data: { catatan?: string; kesimpulan?: string; assignee_id?: number }) =>
+  processStep: (id: number, data: {
+    catatan?: string;
+    kesimpulan?: string;
+    assignee_id?: number;
+    nomor_nd_sk?: string;
+    tanggal_nd_sk?: string;
+    nomor_sk?: string;
+    tanggal_sk?: string;
+  }) =>
     api.post(`/sk-perhutanan/${id}/process`, data),
   addNomorND: (id: number, data: { nomor_nd_sk: string; tanggal_nd_sk: string }) =>
     api.post(`/sk-perhutanan/${id}/nomor-nd`, data),

@@ -235,8 +235,8 @@ export default function SkPerhutananPage() {
         fetchKabkotaByProvinsi(skData.provinsi);
       }
 
-      // Fetch users for distribusi step
-      if (skData.current_step === 4) {
+      // Fetch users for distribusi step (step 4 & step 13)
+      if (skData.current_step === 4 || skData.current_step === 13) {
         const usersRes = await skPerhutananApi.getUsersByJabatan('ANGGOTA_POKJA_HUKUM');
         setAnggotaUsers(usersRes.data.data || []);
       }
@@ -253,6 +253,10 @@ export default function SkPerhutananPage() {
         catatan: values.catatan,
         kesimpulan: values.kesimpulan,
         assignee_id: values.assignee_id,
+        nomor_nd_sk: values.nomor_nd_sk,
+        tanggal_nd_sk: values.tanggal_nd_sk?.format('YYYY-MM-DD'),
+        nomor_sk: values.nomor_sk,
+        tanggal_sk: values.tanggal_sk?.format('YYYY-MM-DD'),
       });
       message.success('Step berhasil diproses');
       setProcessModalVisible(false);
@@ -677,7 +681,7 @@ export default function SkPerhutananPage() {
           setProcessModalVisible(false);
         }}
         footer={[
-          (selectedSK?.status === 'IN_PROGRESS' || selectedSK?.status === 'WAITING_REVISION') && selectedSK?.current_step !== 15 && (
+          (selectedSK?.status === 'IN_PROGRESS' || selectedSK?.status === 'WAITING_REVISION') && selectedSK?.current_step !== 16 && (
             <Button
               key="process"
               type="primary"
@@ -989,19 +993,35 @@ export default function SkPerhutananPage() {
         cancelText="Batal"
       >
         <Form form={processForm} layout="vertical" style={{ marginTop: 16 }}>
+          {/* Step 4: Distribusi ke Anggota */}
           {selectedSK?.current_step === 4 && (
-            <Form.Item
-              name="assignee_id"
-              label="Distribusikan Ke"
-              rules={[{ required: true, message: 'Harus dipilih' }]}
-            >
-              <Select
-                placeholder="Pilih Anggota Pokja Hukum"
-                options={anggotaUsers.map(u => ({ label: u.fullname, value: u.id }))}
-              />
-            </Form.Item>
+            <>
+              <Form.Item
+                name="assignee_id"
+                label="Distribusikan Ke"
+                rules={[{ required: true, message: 'Harus dipilih' }]}
+              >
+                <Select
+                  placeholder="Pilih Anggota Pokja Hukum"
+                  options={anggotaUsers.map(u => ({ label: u.fullname, value: u.id }))}
+                />
+              </Form.Item>
+              <Form.Item
+                name="kesimpulan"
+                label="Kesimpulan"
+                initialValue="DISTRIBUSI"
+                rules={[{ required: true, message: 'Harus dipilih' }]}
+              >
+                <Select
+                  options={[
+                    { label: 'Distribusi', value: 'DISTRIBUSI' },
+                  ]}
+                />
+              </Form.Item>
+            </>
           )}
 
+          {/* Step 5: Telaah Anggota */}
           {selectedSK?.current_step === 5 && (
             <Form.Item
               name="kesimpulan"
@@ -1017,51 +1037,7 @@ export default function SkPerhutananPage() {
             </Form.Item>
           )}
 
-          {selectedSK?.current_step === 2 && (
-            <Form.Item
-              name="kesimpulan"
-              label="Kesimpulan"
-              initialValue="DISPOSISI"
-              rules={[{ required: true, message: 'Harus dipilih' }]}
-            >
-              <Select
-                options={[
-                  { label: 'Disposisi', value: 'DISPOSISI' }
-                ]}
-              />
-            </Form.Item>
-          )}
-
-          {selectedSK?.current_step === 3 && (
-            <Form.Item
-              name="kesimpulan"
-              label="Kesimpulan"
-              initialValue="DISPOSISI"
-              rules={[{ required: true, message: 'Harus dipilih' }]}
-            >
-              <Select
-                options={[
-                  { label: 'Disposisi', value: 'DISPOSISI' },
-                ]}
-              />
-            </Form.Item>
-          )}
-
-          {selectedSK?.current_step === 4 && (
-            <Form.Item
-              name="kesimpulan"
-              label="Kesimpulan"
-              initialValue="DISTRIBUSI"
-              rules={[{ required: true, message: 'Harus dipilih' }]}
-            >
-              <Select
-                options={[
-                  { label: 'Distribusi', value: 'DISTRIBUSI' },
-                ]}
-              />
-            </Form.Item>
-          )}
-
+          {/* Step 6: Approve Ketua */}
           {selectedSK?.current_step === 6 && (
             <Form.Item
               name="kesimpulan"
@@ -1077,6 +1053,7 @@ export default function SkPerhutananPage() {
             </Form.Item>
           )}
 
+          {/* Step 7: Kabag PEHK Telaah */}
           {selectedSK?.current_step === 7 && (
             <Form.Item
               name="kesimpulan"
@@ -1087,6 +1064,194 @@ export default function SkPerhutananPage() {
                 options={[
                   { label: 'Disetujui - Lanjut ke tahap berikutnya', value: 'DISETUJUI' },
                   { label: 'Perbaikan ke Drafter', value: 'PERBAIKAN_DRAFTER' },
+                ]}
+              />
+            </Form.Item>
+          )}
+
+          {/* Step 8: Kasubbag TU Review */}
+          {selectedSK?.current_step === 8 && (
+            <Form.Item
+              name="kesimpulan"
+              label="Kesimpulan"
+              rules={[{ required: true, message: 'Harus dipilih' }]}
+            >
+              <Select
+                options={[
+                  { label: 'Disetujui - Lanjut ke TTD Setditjen', value: 'DISETUJUI' },
+                  { label: 'Perbaikan ke Drafter', value: 'PERBAIKAN_DRAFTER' },
+                ]}
+              />
+            </Form.Item>
+          )}
+
+          {/* Step 9: TTD Setditjen */}
+          {selectedSK?.current_step === 9 && (
+            <Form.Item
+              name="kesimpulan"
+              label="Kesimpulan"
+              rules={[{ required: true, message: 'Harus dipilih' }]}
+            >
+              <Select
+                options={[
+                  { label: 'Disetujui - Lanjut ke Penomoran ND', value: 'DISETUJUI' },
+                  { label: 'Perbaikan ke Drafter', value: 'PERBAIKAN_DRAFTER' },
+                ]}
+              />
+            </Form.Item>
+          )}
+
+          {/* Step 10: Admin TU Penomoran ND */}
+          {selectedSK?.current_step === 10 && (
+            <>
+              <Form.Item
+                name="nomor_nd_sk"
+                label="Nomor ND"
+                rules={[{ required: true, message: 'Harus diisi' }]}
+              >
+                <Input placeholder="Contoh: 123/ABC/2024" />
+              </Form.Item>
+              <Form.Item
+                name="tanggal_nd_sk"
+                label="Tanggal ND"
+                rules={[{ required: true, message: 'Harus diisi' }]}
+              >
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                name="kesimpulan"
+                label="Kesimpulan"
+                initialValue="DISETUJUI"
+                rules={[{ required: true, message: 'Harus dipilih' }]}
+              >
+                <Select
+                  options={[
+                    { label: 'Disetujui - Lanjut ke Dirjen PS', value: 'DISETUJUI' },
+                  ]}
+                />
+              </Form.Item>
+            </>
+          )}
+
+          {/* Step 11: Dirjen PS */}
+          {selectedSK?.current_step === 11 && (
+            <Form.Item
+              name="kesimpulan"
+              label="Kesimpulan"
+              rules={[{ required: true, message: 'Harus dipilih' }]}
+            >
+              <Select
+                options={[
+                  { label: 'Disetujui - Lanjut ke Penomoran SK', value: 'DISETUJUI' },
+                  { label: 'Perbaikan ke Drafter', value: 'PERBAIKAN_DRAFTER' },
+                ]}
+              />
+            </Form.Item>
+          )}
+
+          {/* Step 12: Admin TU Penomoran SK */}
+          {selectedSK?.current_step === 12 && (
+            <>
+              <Form.Item
+                name="nomor_sk"
+                label="Nomor SK"
+                rules={[{ required: true, message: 'Harus diisi' }]}
+              >
+                <Input placeholder="Contoh: SK.123/PS/2024" />
+              </Form.Item>
+              <Form.Item
+                name="tanggal_sk"
+                label="Tanggal SK"
+                rules={[{ required: true, message: 'Harus diisi' }]}
+              >
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+              <Form.Item
+                name="kesimpulan"
+                label="Kesimpulan"
+                initialValue="DISETUJUI"
+                rules={[{ required: true, message: 'Harus dipilih' }]}
+              >
+                <Select
+                  options={[
+                    { label: 'Disetujui - Lanjut ke Distribusi Salinan SK', value: 'DISETUJUI' },
+                  ]}
+                />
+              </Form.Item>
+            </>
+          )}
+
+          {/* Step 13: Distribusi Salinan SK */}
+          {selectedSK?.current_step === 13 && (
+            <>
+              <Form.Item
+                name="assignee_id"
+                label="Distribusikan Finalisasi Ke"
+                rules={[{ required: true, message: 'Harus dipilih' }]}
+              >
+                <Select
+                  placeholder="Pilih Anggota Pokja Hukum"
+                  options={anggotaUsers.map(u => ({ label: u.fullname, value: u.id }))}
+                />
+              </Form.Item>
+              <Form.Item
+                name="kesimpulan"
+                label="Kesimpulan"
+                initialValue="DISTRIBUSI_FINALISASI"
+                rules={[{ required: true, message: 'Harus dipilih' }]}
+              >
+                <Select
+                  options={[
+                    { label: 'Distribusi Finalisasi', value: 'DISTRIBUSI_FINALISASI' },
+                  ]}
+                />
+              </Form.Item>
+            </>
+          )}
+
+          {/* Step 14: Finalisasi Anggota */}
+          {selectedSK?.current_step === 14 && (
+            <Form.Item
+              name="kesimpulan"
+              label="Kesimpulan"
+              initialValue="FINALISASI"
+              rules={[{ required: true, message: 'Harus dipilih' }]}
+            >
+              <Select
+                options={[
+                  { label: 'Finalisasi SK', value: 'FINALISASI' },
+                ]}
+              />
+            </Form.Item>
+          )}
+
+          {/* Step 15: Kabag PEHK TTD Salinan */}
+          {selectedSK?.current_step === 15 && (
+            <Form.Item
+              name="kesimpulan"
+              label="Kesimpulan"
+              initialValue="APPROVE_FINALISASI"
+              rules={[{ required: true, message: 'Harus dipilih' }]}
+            >
+              <Select
+                options={[
+                  { label: 'Approve Finalisasi - Lanjut ke Arsip & Scan', value: 'APPROVE_FINALISASI' },
+                ]}
+              />
+            </Form.Item>
+          )}
+
+          {/* Step 2, 3: Disposisi */}
+          {(selectedSK?.current_step === 2 || selectedSK?.current_step === 3) && (
+            <Form.Item
+              name="kesimpulan"
+              label="Kesimpulan"
+              initialValue="DISPOSISI"
+              rules={[{ required: true, message: 'Harus dipilih' }]}
+            >
+              <Select
+                options={[
+                  { label: 'Disposisi', value: 'DISPOSISI' },
                 ]}
               />
             </Form.Item>
