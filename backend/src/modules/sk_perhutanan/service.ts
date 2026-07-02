@@ -10,14 +10,15 @@ export const WORKFLOW_STEPS = [
   { num: 5,  name: 'Telaah Anggota',          jabatan: 'ANGGOTA_POKJA_HUKUM', action: 'TELAAH' },
   { num: 6,  name: 'Approve Ketua',            jabatan: 'KETUA_POKJA_HUKUM', action: 'APPROVE' },
   { num: 7,  name: 'Kabag PEHK',              jabatan: 'KABAG_PEHKT',      action: 'TELAAH' },
-  { num: 8,  name: 'TU Setditjen',            jabatan: 'TU_SETDITJEN',     action: 'TELAAH' },
-  { num: 9,  name: 'Admin TU Penomoran ND',   jabatan: null,              action: 'PENOMORAN' },
-  { num: 10, name: 'Dirjen PS',               jabatan: 'DIRJEN_PS',        action: 'SIGN' },
-  { num: 11, name: 'Admin TU Penomoran SK',   jabatan: null,              action: 'NOMOR_SK' },
-  { num: 12, name: 'Distribusi SK',           jabatan: 'KETUA_POKJA_HUKUM', action: 'DISTRIBUSI' },
-  { num: 13, name: 'Finalisasi Anggota',      jabatan: 'ANGGOTA_POKJA_HUKUM', action: 'FINALIZE' },
-  { num: 14, name: 'Kabag PEHK TTD Salinan',  jabatan: 'KABAG_PEHKT',      action: 'SIGN_COPY' },
-  { num: 15, name: 'Arsip & Scan',             jabatan: 'KETUA_POKJA_HUKUM', action: 'ARCHIVE' },
+  { num: 8,  name: 'Kasubbag TU',             jabatan: 'KASUBBAG_TU',      action: 'TELAAH' },
+  { num: 9,  name: 'TTD Setditjen',           jabatan: 'SEKDITJEN_PS',     action: 'SIGN' },
+  { num: 10, name: 'Admin TU Penomoran ND',   jabatan: null,              action: 'PENOMORAN' },
+  { num: 11, name: 'Dirjen PS',               jabatan: 'DIRJEN_PS',        action: 'SIGN' },
+  { num: 12, name: 'Admin TU Penomoran SK',   jabatan: null,              action: 'NOMOR_SK' },
+  { num: 13, name: 'Distribusi SK',           jabatan: 'KETUA_POKJA_HUKUM', action: 'DISTRIBUSI' },
+  { num: 14, name: 'Finalisasi Anggota',      jabatan: 'ANGGOTA_POKJA_HUKUM', action: 'FINALIZE' },
+  { num: 15, name: 'Kabag PEHK TTD Salinan',  jabatan: 'KABAG_PEHKT',      action: 'SIGN_COPY' },
+  { num: 16, name: 'Arsip & Scan',             jabatan: 'KETUA_POKJA_HUKUM', action: 'ARCHIVE' },
 ];
 
 // Calculate 14 working days from received date
@@ -381,90 +382,217 @@ Skema: ${skemaName}`);
     // Handle step 5 (Telaah Anggota) specific kesimpulan
     if (sk.current_step === 5) {
       if (stepData.kesimpulan === 'PERBAIKAN_DIREKTORAT') {
-        // Langsung kembali ke step 5 TELAAH_SUBSTANSI - deadline dihentikan hitungannya
+        // Kembali ke step 5 - deadline dihentikan hitungannya
         await prisma.tr_sk_perhutanan.update({
           where: { id },
           data: {
             status: 'WAITING_REVISION',
             current_step: 5,
-            deadline_paused_at: new Date(), // Simpan tanggal jeda
+            deadline_paused_at: new Date(),
           },
         });
 
         return { message: 'Dikembalikan untuk perbaikan ke Direktorat', new_step: 5 };
       }
-      // TELAAH_SUBSTANSI - lanjut ke step 6 (default behavior)
+
+      if (stepData.kesimpulan === 'TELAAH') {
+        let newDeadline: Date;
+
+        if (sk.deadline_paused_at && sk.tanggal_deadline) {
+          // Deadline pernah dihentikan
+          const pausedAt = new Date(sk.deadline_paused_at);
+          const originalDeadline = new Date(sk.tanggal_deadline);
+
+          let remainingDays = 0;
+          let tempDate = new Date(pausedAt);
+          tempDate.setDate(tempDate.getDate() + 1);
+
+          while (tempDate < originalDeadline) {
+            const dayOfWeek = tempDate.getDay();
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+              remainingDays++;
+            }
+            tempDate.setDate(tempDate.getDate() + 1);
+          }
+
+          newDeadline = new Date();
+          let addedDays = 0;
+          while (addedDays < remainingDays) {
+            newDeadline.setDate(newDeadline.getDate() + 1);
+            const dayOfWeek = newDeadline.getDay();
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+              addedDays++;
+            }
+          }
+        } else {
+          newDeadline = new Date(sk.tanggal_deadline);
+        }
+
+        await prisma.tr_sk_perhutanan.update({
+          where: { id },
+          data: {
+            status: 'IN_PROGRESS',
+            current_step: 6,
+            tanggal_deadline: newDeadline,
+            deadline_paused_at: null,
+          },
+        });
+
+        await this.createNextStage(id, 6);
+
+        // Notify Ketua Pokja tentang hasil telaah
+        const tanggalFormatted = sk.tanggal_surat
+          ? new Date(sk.tanggal_surat).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+          : '-';
+
+        let skemaName = sk.skema || '-';
+        if (sk.skema) {
+          const skemaId = parseInt(sk.skema);
+          if (!isNaN(skemaId)) {
+            const skema = await prisma.mst_skema.findUnique({ where: { id_skema: skemaId } });
+            if (skema) skemaName = skema.nama_skema || sk.skema;
+          }
+        }
+
+        await this.notifyJabatan(id, 'KETUA_POKJA_HUKUM', `Pemberitahuan Hasil Telaah
+
+Yth. Ketua Pokja Hukum,
+
+anggota Pokja Hukum telah menyelesaikan telaah dan menyetujui draft SK Perhutanan Sosial. Mohon dilakukan review dan persetujuan untuk proses lebih lanjut.
+
+Nomor ND: ${sk.nomor_surat || '-'}
+Tanggal Telaah: ${tanggalFormatted}
+Perihal: ${sk.perihal}
+Skema: ${skemaName}
+Catatan: ${stepData.catatan || '-'}
+Status: Menunggu Approve Ketua Pokja Hukum.`);
+
+        return { message: 'Dilanjut ke Approve Ketua dengan deadline baru', new_step: 6 };
+      }
     }
 
-    // Handle TELAAH_SUBSTANSI from step 5 (after PERBAIKAN_DIREKTORAT) - calculate new deadline
-    if (sk.current_step === 5 && stepData.kesimpulan === 'TELAAH_SUBSTANSI') {
-      let newDeadline: Date;
+    // Handle step 6 (Approve Ketua) specific kesimpulan
+    if (sk.current_step === 6) {
+      if (stepData.kesimpulan === 'DISETUJUI') {
+        // Lanjut ke step 7
+        await prisma.tr_sk_perhutanan.update({
+          where: { id },
+          data: {
+            status: 'IN_PROGRESS',
+            current_step: 7,
+          },
+        });
+        await this.createNextStage(id, 7);
 
-      if (sk.deadline_paused_at && sk.tanggal_deadline) {
-        // Deadline pernah dihentikan
-        // Sisa hari kerja = hari kerja dari deadline_paused_at SAMPAI deadline asli (tidak termasuk deadline_paused_at)
-        const pausedAt = new Date(sk.deadline_paused_at);
-        const originalDeadline = new Date(sk.tanggal_deadline);
+        // Notif ke Kabag PEHKT
+        await this.notifyJabatan(id, 'KABAG_PEHKT', `Pemberitahuan Hasil Review
 
-        // Hitung sisa hari kerja dari tanggal setelah paused SAMPAI sebelum deadline
-        let remainingDays = 0;
-        let tempDate = new Date(pausedAt);
-        tempDate.setDate(tempDate.getDate() + 1);
+Yth. Kabag PEHK,
 
-        while (tempDate < originalDeadline) {
-          const dayOfWeek = tempDate.getDay();
-          if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-            remainingDays++;
-          }
-          tempDate.setDate(tempDate.getDate() + 1);
-        }
+Ketua Pokja Hukum telah menyelesaikan review dan menyetujui draft SK. Mohon dilakukan telaah untuk proses lebih lanjut.
 
-        // Deadline baru = hari ini + sisa hari kerja
-        newDeadline = new Date();
-        let addedDays = 0;
-        while (addedDays < remainingDays) {
-          newDeadline.setDate(newDeadline.getDate() + 1);
-          const dayOfWeek = newDeadline.getDay();
-          if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-            addedDays++;
-          }
-        }
-      } else {
-        // Deadline tidak pernah dihentikan
-        // Tetap lanjut ke step 6 dengan deadline yang sama
-        newDeadline = new Date(sk.tanggal_deadline);
+Nomor ND: ${sk.nomor_surat || '-'}
+Perihal: ${sk.perihal}
+Status: Menunggu Telaah Kabag PEHK.`);
+
+        return { message: 'Dilanjut ke Telaah Kabag PEHK', new_step: 7 };
       }
 
-      await prisma.tr_sk_perhutanan.update({
-        where: { id },
-        data: {
-          status: 'IN_PROGRESS',
-          current_step: 6,
-          tanggal_deadline: newDeadline,
-          deadline_paused_at: null,
-        },
-      });
+      if (stepData.kesimpulan === 'PERBAIKAN_DRAFTER') {
+        // Kembali ke step 5
+        await prisma.tr_sk_perhutanan.update({
+          where: { id },
+          data: {
+            status: 'WAITING_REVISION',
+            current_step: 5,
+          },
+        });
 
-      await this.createNextStage(id, 6);
+        // Notif ke assignee step 4
+        const assigneeStage = await prisma.tr_sk_workflow.findFirst({
+          where: { sk_id: id, step_num: 4 },
+          select: { assignee_id: true },
+        });
+        if (assigneeStage?.assignee_id) {
+          const assignee = await prisma.mst_users.findUnique({
+            where: { id: assigneeStage.assignee_id },
+            select: { fullname: true },
+          });
+          await this.notifyUser(id, assigneeStage.assignee_id, `Pemberitahuan Perbaikan
 
-      return { message: 'Dilanjut ke Approve Ketua dengan deadline baru', new_step: 6 };
+Yth. ${assignee?.fullname || 'Anggota Pokja Hukum'},
+
+SK Perhutanan Sosial berikut perlu diperbaiki sesuai catatan Ketua Pokja:
+
+Perihal: ${sk.perihal}
+Catatan: ${stepData.catatan || '-'}
+Status: Menunggu Perbaikan.`);
+        }
+
+        return { message: 'Dikembalikan untuk perbaikan', new_step: 5 };
+      }
     }
 
-    // Handle based on kesimpulan (for other steps)
-    if (stepData.kesimpulan === 'PERBAIKAN') {
-      // Go back to step 5 (Anggota Pokja Hukum)
-      await prisma.tr_sk_perhutanan.update({
-        where: { id },
-        data: {
-          status: 'WAITING_REVISION',
-          current_step: 5,
-        },
-      });
+    // Handle step 7 (Kabag PEHK) specific kesimpulan
+    if (sk.current_step === 7) {
+      if (stepData.kesimpulan === 'DISETUJUI') {
+        // Lanjut ke step 8
+        await prisma.tr_sk_perhutanan.update({
+          where: { id },
+          data: {
+            status: 'IN_PROGRESS',
+            current_step: 8,
+          },
+        });
+        await this.createNextStage(id, 8);
 
-      // Notify ANGGOTA_POKJA_HUKUM
-      await this.notifyJabatan(id, 'ANGGOTA_POKJA_HUKUM', `SK perlu direvisi:\n${sk.perihal}\n\nCatatan: ${stepData.catatan}`);
+        // Notif ke Kasubbag TU
+        await this.notifyJabatan(id, 'KASUBBAG_TU', `Pemberitahuan Hasil Telaah
 
-      return { message: 'Dikembalikan untuk perbaikan', new_step: 5 };
+Yth. Kasubbag TU,
+
+Kabag PEHK telah menyelesaikan telaah dan menyetujui draft SK. Mohon dilakukan review untuk proses lebih lanjut.
+
+Nomor ND: ${sk.nomor_surat || '-'}
+Perihal: ${sk.perihal}
+Status: Menunggu Review Kasubbag TU.`);
+
+        return { message: 'Dilanjut ke Kasubbag TU', new_step: 8 };
+      }
+
+      if (stepData.kesimpulan === 'PERBAIKAN_DRAFTER') {
+        // Kembali ke step 5
+        await prisma.tr_sk_perhutanan.update({
+          where: { id },
+          data: {
+            status: 'WAITING_REVISION',
+            current_step: 5,
+          },
+        });
+
+        // Notif ke assignee step 4
+        const assigneeStage = await prisma.tr_sk_workflow.findFirst({
+          where: { sk_id: id, step_num: 4 },
+          select: { assignee_id: true },
+        });
+        if (assigneeStage?.assignee_id) {
+          const assignee = await prisma.mst_users.findUnique({
+            where: { id: assigneeStage.assignee_id },
+            select: { fullname: true },
+          });
+          await this.notifyUser(id, assigneeStage.assignee_id, `Pemberitahuan Perbaikan
+
+Yth. ${assignee?.fullname || 'Anggota Pokja Hukum'},
+
+SK Perhutanan Sosial berikut perlu diperbaiki sesuai catatan Kabag PEHK:
+
+Perihal: ${sk.perihal}
+Catatan: ${stepData.catatan || '-'}
+Status: Menunggu Perbaikan.`);
+        }
+
+        return { message: 'Dikembalikan untuk perbaikan', new_step: 5 };
+      }
     }
 
     // Check if workflow is complete
@@ -483,15 +611,8 @@ Skema: ${skemaName}`);
     // Move to next step
     let newStep = sk.current_step + 1;
 
-    // Special handling for step 9 (Admin TU Penomoran) - stays at Admin_TU
-    if (sk.current_step === 8) {
-      newStep = 9;
-    }
-
-    // Special handling for step 11 (Admin TU Penomoran SK) - goes to DIRJEN_PS
-    if (sk.current_step === 10) {
-      newStep = 11;
-    }
+    // Step 8 (Kasubbag TU) continues to step 9 (TTD Setditjen)
+    // Step 10 (Admin TU Penomoran ND) continues to step 11 (Dirjen PS)
 
     await prisma.tr_sk_perhutanan.update({
       where: { id },
@@ -529,9 +650,70 @@ Skema: ${skemaName}`);
     // Notify next assignee
     const nextJabatan = nextStepConfig.jabatan || currentStepConfig.jabatan;
     if (nextJabatan) {
-      // For step 4 (distribusi), notify specific user
+      // For step 4 (distribusi), notify specific user with distribusi format
       if (sk.current_step === 4 && stepData.assignee_id) {
-        await this.notifyUser(id, stepData.assignee_id, `SK perlu ditindaklanjuti:\n${sk.perihal}`);
+        const assignee = await prisma.mst_users.findUnique({
+          where: { id: stepData.assignee_id },
+          select: { fullname: true },
+        });
+
+        const tanggalFormatted = sk.tanggal_surat
+          ? new Date(sk.tanggal_surat).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+          : '-';
+
+        let skemaName = sk.skema || '-';
+        if (sk.skema) {
+          const skemaId = parseInt(sk.skema);
+          if (!isNaN(skemaId)) {
+            const skema = await prisma.mst_skema.findUnique({ where: { id_skema: skemaId } });
+            if (skema) skemaName = skema.nama_skema || sk.skema;
+          }
+        }
+
+        const catatanText = stepData.catatan ? stepData.catatan : '-';
+        const distribusiDari = this.getJabatanName(currentStepConfig.jabatan || 'ADMIN_TU');
+
+        await this.notifyUser(id, stepData.assignee_id, `Pemberitahuan Distribusi SK
+
+Yth. ${assignee?.fullname || 'Anggota Pokja Hukum'},
+
+${distribusiDari} telah mendistribusikan Naskah Dinas Draft SK Perhutanan Sosial untuk dilakukan telaah SK.
+
+Nomor ND: ${sk.nomor_surat || '-'}
+Tanggal ND : ${tanggalFormatted}
+Perihal: ${sk.perihal}
+Skema: ${skemaName}
+Catatan: ${catatanText}
+Status: Menunggu Telaah Anggota Pokja Hukum.`);
+      } else if (sk.current_step === 2 || sk.current_step === 3) {
+        // Step 2 → 3 & Step 3 → 4: Notification Disposisi
+        const tanggalFormatted = sk.tanggal_surat
+          ? new Date(sk.tanggal_surat).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+          : '-';
+
+        let skemaName = sk.skema || '-';
+        if (sk.skema) {
+          const skemaId = parseInt(sk.skema);
+          if (!isNaN(skemaId)) {
+            const skema = await prisma.mst_skema.findUnique({ where: { id_skema: skemaId } });
+            if (skema) skemaName = skema.nama_skema || sk.skema;
+          }
+        }
+
+        const catatanText = stepData.catatan ? stepData.catatan : '-';
+        const disposisiDari = this.getJabatanName(currentStepConfig.jabatan || 'ADMIN_TU');
+
+        await this.notifyJabatan(id, nextJabatan, `Pemberitahuan Disposisi
+
+Yth. ${this.getJabatanName(nextJabatan)},
+
+Bersama ini disampaikan Naskah Dinas Draft SK Perhutanan Sosial yang telah didisposisikan oleh ${disposisiDari}. Mohon dilakukan telaah dan tindak lanjut sesuai kewenangan untuk proses lebih lanjut.
+
+Nomor ND: ${sk.nomor_surat || '-'}
+Tanggal ND: ${tanggalFormatted}
+Perihal: ${sk.perihal}
+Skema: ${skemaName}
+Catatan: ${catatanText}`);
       } else {
         await this.notifyJabatan(id, nextJabatan, `SK perlu ditindaklanjuti:\n${sk.perihal}`);
       }
@@ -543,7 +725,7 @@ Skema: ${skemaName}`);
   async addNomorND(id: number, data: { nomor_nd_sk: string; tanggal_nd_sk: string }, userId: number) {
     const sk = await prisma.tr_sk_perhutanan.findUnique({ where: { id } });
     if (!sk) throw new Error('SK not found');
-    if (sk.current_step !== 9) throw new Error('Bukan tahap penomoran ND');
+    if (sk.current_step !== 10) throw new Error('Bukan tahap penomoran ND');
 
     await prisma.tr_sk_perhutanan.update({
       where: { id },
@@ -555,17 +737,17 @@ Skema: ${skemaName}`);
 
     // Update workflow stage
     await prisma.tr_sk_workflow.updateMany({
-      where: { sk_id: id, step_num: 9 },
+      where: { sk_id: id, step_num: 10 },
       data: { is_completed: true, completed_at: new Date(), completed_by: userId },
     });
 
-    // Move to step 10 (DIRJEN_PS)
+    // Move to step 11 (DIRJEN_PS)
     await prisma.tr_sk_perhutanan.update({
       where: { id },
-      data: { current_step: 10 },
+      data: { current_step: 11 },
     });
 
-    await this.createNextStage(id, 10);
+    await this.createNextStage(id, 11);
 
     // Notify DIRJEN_PS
     await this.notifyJabatan(id, 'DIRJEN_PS', `SK siap untuk ditandatangani:\n${sk.perihal}`);
@@ -576,24 +758,24 @@ Skema: ${skemaName}`);
   async signSK(id: number, userId: number) {
     const sk = await prisma.tr_sk_perhutanan.findUnique({ where: { id } });
     if (!sk) throw new Error('SK not found');
-    if (sk.current_step !== 10) throw new Error('Bukan tahap penandatanganan');
+    if (sk.current_step !== 11) throw new Error('Bukan tahap penandatanganan');
 
     // Update workflow stage
     await prisma.tr_sk_workflow.updateMany({
-      where: { sk_id: id, step_num: 10 },
+      where: { sk_id: id, step_num: 11 },
       data: { is_completed: true, completed_at: new Date(), completed_by: userId, kesimpulan: 'DISETUJUI' },
     });
 
-    // Move to step 11 (Admin TU Penomoran SK)
+    // Move to step 12 (Admin TU Penomoran SK)
     await prisma.tr_sk_perhutanan.update({
       where: { id },
       data: {
         status: 'APPROVED',
-        current_step: 11,
+        current_step: 12,
       },
     });
 
-    await this.createNextStage(id, 11);
+    await this.createNextStage(id, 12);
 
     return { message: 'SK ditandatangani' };
   }
@@ -601,7 +783,7 @@ Skema: ${skemaName}`);
   async addNomorSK(id: number, data: { nomor_sk: string; tanggal_sk: string }, userId: number) {
     const sk = await prisma.tr_sk_perhutanan.findUnique({ where: { id } });
     if (!sk) throw new Error('SK not found');
-    if (sk.current_step !== 11) throw new Error('Bukan tahap penomoran SK');
+    if (sk.current_step !== 12) throw new Error('Bukan tahap penomoran SK');
 
     await prisma.tr_sk_perhutanan.update({
       where: { id },
@@ -613,17 +795,17 @@ Skema: ${skemaName}`);
 
     // Update workflow stage
     await prisma.tr_sk_workflow.updateMany({
-      where: { sk_id: id, step_num: 11 },
+      where: { sk_id: id, step_num: 12 },
       data: { is_completed: true, completed_at: new Date(), completed_by: userId },
     });
 
-    // Move to step 12 (Ketua Pokja)
+    // Move to step 13 (Ketua Pokja)
     await prisma.tr_sk_perhutanan.update({
       where: { id },
-      data: { current_step: 12 },
+      data: { current_step: 13 },
     });
 
-    await this.createNextStage(id, 12);
+    await this.createNextStage(id, 13);
 
     // Notify KETUA_POKJA_HUKUM
     await this.notifyJabatan(id, 'KETUA_POKJA_HUKUM', `SK siap didistribusikan:\n${sk.perihal}`);
@@ -645,7 +827,7 @@ Skema: ${skemaName}`);
       where: { id },
       data: {
         status: 'COMPLETED',
-        current_step: 15,
+        current_step: 16,
       },
     });
 
@@ -794,6 +976,19 @@ Skema: ${skemaName}`);
         }
       }
     }
+  }
+
+  // Helper: Get jabatan name from code
+  private getJabatanName(jabatanCode: string): string {
+    const names: Record<string, string> = {
+      'SEKDITJEN_PS': 'Sekretaris Ditjen PS',
+      'KABAG_PEHKT': 'Kabag PEHK',
+      'KETUA_POKJA_HUKUM': 'Ketua Pokja Hukum',
+      'ANGGOTA_POKJA_HUKUM': 'Anggota Pokja Hukum',
+      'TU_SETDITJEN': 'TU Setditjen',
+      'DIRJEN_PS': 'Dirjen PS',
+    };
+    return names[jabatanCode] || jabatanCode;
   }
 
   // Helper: Send WhatsApp notification to specific user

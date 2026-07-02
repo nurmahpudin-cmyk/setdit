@@ -45,7 +45,7 @@ const updateSchema = z.object({
 
 const processStepSchema = z.object({
   catatan: z.string().optional(),
-  kesimpulan: z.enum(['DISETUJUI', 'PERBAIKAN', 'TELAAH_SUBSTANSI', 'PERBAIKAN_DIREKTORAT']).optional(),
+  kesimpulan: z.enum(['TELAAH', 'PERBAIKAN_DIREKTORAT', 'DISETUJUI', 'PERBAIKAN_DRAFTER']).optional(),
   assignee_id: z.number().optional(),
 });
 

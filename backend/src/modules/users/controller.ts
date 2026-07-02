@@ -12,6 +12,7 @@ const createSchema = z.object({
   position_id: z.number().int().positive().optional(),
   unit_id: z.number().int().positive().optional(),
   role_ids: z.array(z.number().int().positive()).optional(),
+  jabatan_code: z.string().optional(),
 });
 
 const updateSchema = z.object({

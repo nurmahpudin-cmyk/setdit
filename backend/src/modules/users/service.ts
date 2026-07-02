@@ -90,6 +90,7 @@ export class UsersService {
     position_id?: number;
     unit_id?: number;
     role_ids?: number[];
+    jabatan_code?: string;
   }) {
     const existing = await prisma.mst_users.findFirst({
       where: {
@@ -103,6 +104,7 @@ export class UsersService {
 
     const hashedPassword = await hashPassword(data.password);
 
+    // Create user first
     const user = await prisma.mst_users.create({
       data: {
         fullname: data.fullname,
@@ -124,6 +126,17 @@ export class UsersService {
         roles: { include: { role: true } },
       },
     });
+
+    // Assign jabatan if provided
+    if (data.jabatan_code) {
+      await prisma.tr_jabatan_assignment.create({
+        data: {
+          user_id: user.id,
+          jabatan_code: data.jabatan_code,
+          is_active: true,
+        },
+      });
+    }
 
     const { password, ...rest } = user;
     return rest;

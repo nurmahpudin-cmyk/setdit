@@ -53,14 +53,15 @@ const WORKFLOW_STEPS = [
   { num: 5, name: 'Telaah Anggota', color: '#1890ff' },
   { num: 6, name: 'Approve Ketua', color: '#1890ff' },
   { num: 7, name: 'Kabag PEHK', color: '#1890ff' },
-  { num: 8, name: 'TU Setditjen', color: '#1890ff' },
-  { num: 9, name: 'Admin TU Penomoran ND', color: '#1890ff' },
-  { num: 10, name: 'Dirjen PS', color: '#1890ff' },
-  { num: 11, name: 'Admin TU Penomoran SK', color: '#1890ff' },
-  { num: 12, name: 'Distribusi SK', color: '#1890ff' },
-  { num: 13, name: 'Finalisasi Anggota', color: '#1890ff' },
-  { num: 14, name: 'Kabag PEHK TTD Salinan', color: '#1890ff' },
-  { num: 15, name: 'Arsip & Scan', color: '#52c41a' },
+  { num: 8, name: 'Kasubbag TU', color: '#1890ff' },
+  { num: 9, name: 'TTD Setditjen', color: '#1890ff' },
+  { num: 10, name: 'Admin TU Penomoran ND', color: '#1890ff' },
+  { num: 11, name: 'Dirjen PS', color: '#1890ff' },
+  { num: 12, name: 'Admin TU Penomoran SK', color: '#1890ff' },
+  { num: 13, name: 'Distribusi SK', color: '#1890ff' },
+  { num: 14, name: 'Finalisasi Anggota', color: '#1890ff' },
+  { num: 15, name: 'Kabag PEHK TTD Salinan', color: '#1890ff' },
+  { num: 16, name: 'Arsip & Scan', color: '#52c41a' },
 ];
 
 export default function SkPerhutananPage() {
@@ -792,7 +793,7 @@ export default function SkPerhutananPage() {
                       </Col>
                       <Col xs={24} sm={12}>
                         <Text type="secondary">Konseptor:</Text>
-                        <div>{selectedSK.creator?.fullname || '-'}</div>
+                        <div>{selectedSK.konseptor || '-'}</div>
                       </Col>
                     </Row>
 
@@ -1009,7 +1010,7 @@ export default function SkPerhutananPage() {
             >
               <Select
                 options={[
-                  { label: 'Lanjut ke tahap berikutnya', value: 'TELAAH_SUBSTANSI' },
+                  { label: 'Lanjut ke tahap berikutnya', value: 'TELAAH' },
                   { label: 'Perbaikan ke Direktorat', value: 'PERBAIKAN_DIREKTORAT' },
                 ]}
               />
@@ -1070,7 +1071,7 @@ export default function SkPerhutananPage() {
               <Select
                 options={[
                   { label: 'Disetujui - Lanjut ke tahap berikutnya', value: 'DISETUJUI' },
-                  { label: 'Perbaikan ke Drafter', value: 'PERBAIKAN' },
+                  { label: 'Perbaikan ke Drafter', value: 'PERBAIKAN_DRAFTER' },
                 ]}
               />
             </Form.Item>
@@ -1080,13 +1081,12 @@ export default function SkPerhutananPage() {
             <Form.Item
               name="kesimpulan"
               label="Kesimpulan"
-              initialValue="DISETUJUI"
               rules={[{ required: true, message: 'Harus dipilih' }]}
             >
               <Select
                 options={[
                   { label: 'Disetujui - Lanjut ke tahap berikutnya', value: 'DISETUJUI' },
-                  { label: 'Perbaikan ke Drafter', value: 'PERBAIKAN' },
+                  { label: 'Perbaikan ke Drafter', value: 'PERBAIKAN_DRAFTER' },
                 ]}
               />
             </Form.Item>
