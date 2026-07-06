@@ -14,8 +14,7 @@ const createSchema = z.object({
   pendamping_pegawai: z
     .array(
       z.object({
-        user_id: z.number(),
-        nama_lengkap: z.string(),
+        pegawai_id: z.number(),
       })
     )
     .optional(),
@@ -38,8 +37,7 @@ const updateSchema = z.object({
   pendamping_pegawai: z
     .array(
       z.object({
-        user_id: z.number(),
-        nama_lengkap: z.string(),
+        pegawai_id: z.number(),
       })
     )
     .optional(),
@@ -191,7 +189,7 @@ export class JadwalPimpinanController {
         if (j.pendamping_pegawai.length > 0) {
           message += `Pendamping:\n`;
           j.pendamping_pegawai.forEach((p, idx) => {
-            message += `${idx + 1}. ${p.nama_lengkap}\n`;
+            message += `${idx + 1}. ${p.pegawai?.nama_lengkap || '-'}\n`;
           });
         }
 
@@ -270,7 +268,7 @@ export class JadwalPimpinanController {
         if (j.pendamping_pegawai.length > 0) {
           preview += `Pendamping:\n`;
           j.pendamping_pegawai.forEach((p, idx) => {
-            preview += `${idx + 1}. ${p.nama_lengkap}\n`;
+            preview += `${idx + 1}. ${p.pegawai?.nama_lengkap || '-'}\n`;
           });
         }
 

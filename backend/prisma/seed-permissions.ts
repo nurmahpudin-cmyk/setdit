@@ -8,11 +8,13 @@ async function seedMissingPermissions() {
   const missingPermissions = [
     // SK Perhutanan
     { name: 'Lihat SK', code: 'sk_perhutanan.view', module: 'sk_perhutanan', action: 'view' },
+    { name: 'Cari SK', code: 'sk_perhutanan.search', module: 'sk_perhutanan', action: 'search' },
     { name: 'Buat SK', code: 'sk_perhutanan.create', module: 'sk_perhutanan', action: 'create' },
     { name: 'Edit SK', code: 'sk_perhutanan.edit', module: 'sk_perhutanan', action: 'edit' },
     { name: 'Submit SK', code: 'sk_perhutanan.submit', module: 'sk_perhutanan', action: 'submit' },
     { name: 'Proses SK', code: 'sk_perhutanan.process', module: 'sk_perhutanan', action: 'process' },
     { name: 'Kelola SK', code: 'sk_perhutanan.manage', module: 'sk_perhutanan', action: 'manage' },
+    { name: 'Export SK', code: 'sk_perhutanan.export', module: 'sk_perhutanan', action: 'export' },
 
     // Provinsi
     { name: 'Lihat Provinsi', code: 'provinsi.view', module: 'provinsi', action: 'view' },
@@ -55,8 +57,42 @@ async function seedMissingPermissions() {
 
   console.log(`\n📊 Summary: ${created} created, ${skipped} skipped`);
 
-  // Assign new permissions to SUPER_ADMIN
-  console.log('\n🔑 Assigning new permissions to SUPER_ADMIN...\n');
+  // Assign SK export permission to ALL roles
+  console.log('\n🔑 Assigning sk_perhutanan.export to ALL roles...\n');
+
+  const exportPermission = await prisma.mst_permissions.findUnique({
+    where: { code: 'sk_perhutanan.export' },
+  });
+
+  if (exportPermission) {
+    const allRoles = await prisma.mst_roles.findMany();
+
+    for (const role of allRoles) {
+      const existing = await prisma.tr_role_permissions.findUnique({
+        where: {
+          role_id_permission_id: {
+            role_id: role.id,
+            permission_id: exportPermission.id,
+          },
+        },
+      });
+
+      if (!existing) {
+        await prisma.tr_role_permissions.create({
+          data: {
+            role_id: role.id,
+            permission_id: exportPermission.id,
+          },
+        });
+        console.log(`✅ Assigned to ${role.code}: sk_perhutanan.export`);
+      } else {
+        console.log(`⏭️  Already assigned to ${role.code}: sk_perhutanan.export`);
+      }
+    }
+  }
+
+  // Assign other new permissions to SUPER_ADMIN
+  console.log('\n🔑 Assigning other new permissions to SUPER_ADMIN...\n');
 
   const superAdmin = await prisma.mst_roles.findUnique({
     where: { code: 'SUPER_ADMIN' },
@@ -64,6 +100,8 @@ async function seedMissingPermissions() {
 
   if (superAdmin) {
     for (const perm of missingPermissions) {
+      if (perm.code === 'sk_perhutanan.export') continue; // Already assigned to all
+
       const permission = await prisma.mst_permissions.findUnique({
         where: { code: perm.code },
       });
@@ -98,10 +136,56 @@ async function seedMissingPermissions() {
     'SK Perhutanan': ['sk_perhutanan.view'],
     'Daftar SK': ['sk_perhutanan.view'],
     'Tambah SK Baru': ['sk_perhutanan.create'],
+    'Export SK': ['sk_perhutanan.export'],
     'Provinsi': ['provinsi.view', 'provinsi.create', 'provinsi.update', 'provinsi.delete'],
     'Kabupaten/Kota': ['kabkota.view', 'kabkota.create', 'kabkota.update', 'kabkota.delete'],
     'Skema': ['skema.view', 'skema.create', 'skema.update', 'skema.delete'],
   };
+
+  // Assign permissions to ASPRI_DIRJEN
+  console.log('\n🔑 Assigning SK permissions to ASPRI_DIRJEN...\n');
+
+  const aspriRole = await prisma.mst_roles.findUnique({
+    where: { code: 'ASPRI_DIRJEN' },
+  });
+
+  if (aspriRole) {
+    const aspriPermissions = [
+      'sk_perhutanan.view',
+      'sk_perhutanan.process',
+    ];
+
+    for (const permCode of aspriPermissions) {
+      const permission = await prisma.mst_permissions.findUnique({
+        where: { code: permCode },
+      });
+
+      if (permission) {
+        const existing = await prisma.tr_role_permissions.findUnique({
+          where: {
+            role_id_permission_id: {
+              role_id: aspriRole.id,
+              permission_id: permission.id,
+            },
+          },
+        });
+
+        if (!existing) {
+          await prisma.tr_role_permissions.create({
+            data: {
+              role_id: aspriRole.id,
+              permission_id: permission.id,
+            },
+          });
+          console.log(`✅ Assigned to ASPRI_DIRJEN: ${permCode}`);
+        } else {
+          console.log(`⏭️  Already assigned to ASPRI_DIRJEN: ${permCode}`);
+        }
+      }
+    }
+  } else {
+    console.log(`⚠️  Role ASPRI_DIRJEN not found`);
+  }
 
   for (const [menuName, permCodes] of Object.entries(menuPermissionMap)) {
     const menu = await prisma.mst_menus.findFirst({

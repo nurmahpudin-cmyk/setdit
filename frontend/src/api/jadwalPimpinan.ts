@@ -76,7 +76,10 @@ export interface PaginatedResponse<T> {
 export const jadwalPimpinanApi = {
   findAll: async (params?: PaginationParams): Promise<PaginatedResponse<JadwalPimpinan>> => {
     const response = await api.get('/jadwal-pimpinan', { params });
-    return response.data;
+    return {
+      items: response.data.data,
+      pagination: response.data.pagination,
+    };
   },
 
   findById: async (id: number): Promise<JadwalPimpinan> => {

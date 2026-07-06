@@ -24,6 +24,7 @@ import { provinsiRouter } from './modules/provinsi/routes.js';
 import { kabkotaRouter } from './modules/kabkota/routes.js';
 import { skemaRouter } from './modules/skema/routes.js';
 import { externalRouter } from './modules/external/proxy.js';
+import { cronService } from './services/cron.js';
 
 const app = express();
 
@@ -108,6 +109,9 @@ app.listen(config.port, async () => {
 
   // Reconnect WhatsApp sessions
   await whatsappService.initializeSessions();
+
+  // Start cron jobs
+  cronService.start();
 });
 
 export default app;

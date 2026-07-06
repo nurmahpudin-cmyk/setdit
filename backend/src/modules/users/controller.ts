@@ -9,7 +9,6 @@ const createSchema = z.object({
   email: z.string().email(),
   phone: z.string().min(10).max(20),
   password: z.string().min(8),
-  position_id: z.number().int().positive().optional(),
   unit_id: z.number().int().positive().optional(),
   role_ids: z.array(z.number().int().positive()).optional(),
   jabatan_code: z.string().optional(),
@@ -19,8 +18,9 @@ const updateSchema = z.object({
   fullname: z.string().min(2).max(100).optional(),
   email: z.string().email().optional(),
   phone: z.string().min(10).max(20).optional(),
-  position_id: z.number().int().positive().optional().nullable(),
   unit_id: z.number().int().positive().optional().nullable(),
+  role_ids: z.array(z.number().int().positive()).optional(),
+  jabatan_code: z.string().optional().nullable(),
 });
 
 const assignRolesSchema = z.object({

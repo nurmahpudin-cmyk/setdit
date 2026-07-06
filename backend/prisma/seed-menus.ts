@@ -75,7 +75,8 @@ async function seedMenus() {
 
   const skPsChildren = [
     { name: 'Daftar SK', path: '/sk-perhutanan', icon: 'UnorderedListOutlined', order_num: 21, perms: ['sk_perhutanan.view'] },
-    { name: 'Tambah SK', path: '/sk-perhutanan/create', icon: 'PlusSquareOutlined', order_num: 22, perms: ['sk_perhutanan.create'] },
+    { name: 'Pencarian Proses SK', path: '/proceed-sk', icon: 'SearchOutlined', order_num: 22, perms: ['sk_perhutanan.view', 'sk_perhutanan.search'] },
+    { name: 'Export SK', path: '/export-sk', icon: 'FileExcelOutlined', order_num: 24, perms: ['sk_perhutanan.export'] },
   ];
 
   const skPsId = menuMap.get('SK PS')!;
@@ -105,7 +106,6 @@ async function seedMenus() {
     { name: 'Permission', path: '/permissions', icon: 'KeyOutlined', order_num: 54, perms: ['permission.view', 'permission.manage'] },
     { name: 'Log Aktifitas', path: '/logs', icon: 'FileTextOutlined', order_num: 55, perms: ['log.view'] },
     { name: 'WhatsApp', path: '/whatsapp', icon: 'CustomerServiceOutlined', order_num: 56, perms: ['wa.view', 'wa.manage', 'wa.send'] },
-    { name: 'Tambah SK', path: '/sk-perhutanan/create', icon: 'PlusSquareOutlined', order_num: 57, perms: ['sk_perhutanan.create'] },
   ];
 
   const pengaturanId = menuMap.get('Pengaturan')!;
@@ -131,7 +131,9 @@ async function seedMenus() {
   const allPermissions: Record<string, string[]> = {
     'Dashboard': ['dashboard.view'],
     'SK PS/Daftar SK': ['sk_perhutanan.view'],
+    'SK PS/Pencarian Proses SK': ['sk_perhutanan.view', 'sk_perhutanan.search'],
     'SK PS/Tambah SK': ['sk_perhutanan.create'],
+    'SK PS/Export SK': ['sk_perhutanan.export'],
     'Jadwal Pimpinan': ['jadwal.view', 'jadwal.manage'],
     'Master/Pegawai': ['pegawai.view', 'pegawai.manage'],
     'Master/Pengguna': ['user.view', 'user.create', 'user.update', 'user.delete'],

@@ -6,6 +6,7 @@ export interface AuthRequest extends Request {
     id: number;
     email: string;
     username: string;
+    jabatan_codes?: string[];
   };
 }
 
@@ -24,6 +25,7 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
       id: decoded.id,
       email: decoded.email,
       username: decoded.username,
+      jabatan_codes: decoded.jabatan_codes || [],
     };
 
     next();

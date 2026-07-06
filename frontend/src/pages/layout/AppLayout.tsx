@@ -28,6 +28,7 @@ import {
   SafetyOutlined,
   KeyOutlined,
   CustomerServiceOutlined,
+  SearchOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/useRedux';
@@ -50,6 +51,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/jadwal-pimpinan': 'Jadwal Pimpinan',
   '/pegawai': 'Data Pegawai',
   '/sk-perhutanan': 'SK Perhutanan Sosial',
+  '/proceed-sk': 'Pencarian Proses SK',
   '/master/provinsi': 'Master Provinsi',
   '/master/kabkota': 'Master Kabupaten/Kota',
   '/master/skema': 'Master Skema',
@@ -68,6 +70,7 @@ const getLogoUrl = (logo: string | undefined) => {
 const menuItems = [
   { key: '/dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
   { key: '/sk-perhutanan', icon: <FileTextOutlined />, label: 'SK Perhutanan' },
+  { key: '/proceed-sk', icon: <SearchOutlined />, label: 'Pencarian Proses SK' },
   { key: '/master/provinsi', icon: <FileTextOutlined />, label: 'Provinsi' },
   { key: '/master/kabkota', icon: <FileTextOutlined />, label: 'Kabupaten/Kota' },
   { key: '/master/skema', icon: <FileTextOutlined />, label: 'Skema' },
@@ -107,6 +110,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   SafetyOutlined: <SafetyOutlined />,
   KeyOutlined: <KeyOutlined />,
   CustomerServiceOutlined: <CustomerServiceOutlined />,
+  SearchOutlined: <SearchOutlined />,
   // Aliases
   UsergroupAddOutlined: <TeamOutlined />,
 };

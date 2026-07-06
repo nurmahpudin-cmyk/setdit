@@ -349,7 +349,7 @@ export default function JadwalPimpinanPage() {
             />
           </Form.Item>
 
-          <Form.Item name="pendamping_direktur" label="Pendamping Directeur">
+          <Form.Item name="pendamping_direktur" label="Pendamping Direktur">
             <Checkbox.Group options={DIREKTUR_OPTIONS} />
           </Form.Item>
         </Form>

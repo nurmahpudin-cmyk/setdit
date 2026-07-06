@@ -1,124 +1,243 @@
 import { useEffect, useState } from 'react';
-import { Row, Col, Card, Statistic, Typography, Space } from 'antd';
+import { Row, Col, Card, Statistic, Typography, Space, List, Tag, Button } from 'antd';
 import {
-  UserOutlined,
-  TeamOutlined,
-  LockOutlined,
+  FileTextOutlined,
+  ClockCircleOutlined,
   CheckCircleOutlined,
+  WarningOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons';
-import { api } from '../../api/axios';
+import { useNavigate } from 'react-router-dom';
+import { useAppSelector } from '../../hooks/useRedux';
+import { skPerhutananApi } from '../../api/skPerhutanan';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
+
+// Mapping jabatan ke nama dan step yang harus dilakukan
+const JABATAN_STEPS: Record<string, { name: string; steps: { num: number; name: string; action: string }[] }> = {
+  SEKDITJEN_PS: { name: 'Sekditjen PS', steps: [{ num: 2, name: 'Setditjen PS', action: 'Review & approve surat masuk' }] },
+  KABAG_PEHKT: { name: 'Kabag PEHKT', steps: [{ num: 3, name: 'Kabag PEHK', action: 'Telaah & approve' }, { num: 7, name: 'Kabag PEHK', action: 'Telaah & approve' }, { num: 16, name: 'Kabag PEHK TTD Salinan', action: 'TTD Salinan & arsip' }] },
+  ANGGOTA_POKJA_HUKUM: { name: 'Anggota Pokja Hukum', steps: [{ num: 5, name: 'Telaah Anggota', action: 'Telaah draft SK' }, { num: 14, name: 'Finalisasi Anggota', action: 'Finalisasi SK' }] },
+  KETUA_POKJA_HUKUM: { name: 'Ketua Pokja Hukum', steps: [{ num: 4, name: 'Distribusi Ke Anggota', action: 'Distribusi ke anggota untuk telaah' }, { num: 6, name: 'Approve Ketua', action: 'Approve hasil telaah' }, { num: 13, name: 'Distribusi SK', action: 'Distribusi SK untuk finalisasi' }, { num: 15, name: 'Approve Finalisasi', action: 'Approve hasil finalisasi' }, { num: 17, name: 'Arsip & Scan', action: 'Arsip & scan final' }] },
+  KASUBBAG_TU: { name: 'Kasubbag TU', steps: [{ num: 8, name: 'Kasubbag TU', action: 'Proses disposisi surat' }] },
+  TU_SETDITJEN: { name: 'TU Setditjen', steps: [{ num: 10, name: 'Admin TU Penomoran ND', action: 'Penomoran ND' }, { num: 12, name: 'Admin TU Penomoran SK', action: 'Penomoran SK' }, { num: 17, name: 'Arsip & Scan', action: 'Arsip & scan final' }] },
+  DIRJEN_PS: { name: 'Dirjen PS', steps: [{ num: 11, name: 'Dirjen PS', action: 'TTD ND' }] },
+};
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    activeUsers: 0,
-    totalRoles: 0,
-    totalPermissions: 0,
-  });
+  const navigate = useNavigate();
+  const { user } = useAppSelector((state) => state.auth);
+  const [pendingList, setPendingList] = useState<any[]>([]);
+  const [stats, setStats] = useState({ total: 0, inProgress: 0, waitingRevision: 0, completed: 0, overdue: 0 });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const [usersRes, rolesRes, permsRes] = await Promise.all([
-          api.get('/users?limit=1'),
-          api.get('/roles'),
-          api.get('/permissions'),
-        ]);
-        const allUsers = usersRes.data.data || [];
-        const total = usersRes.data.pagination?.total || 0;
-        const active = allUsers.filter((u: any) => u.status === 'ACTIVE').length || total;
+  const userJabatanCodes = user?.jabatan_codes || [];
 
-        setStats({
-          totalUsers: total,
-          activeUsers: active || total,
-          totalRoles: rolesRes.data.data?.length || 0,
-          totalPermissions: permsRes.data.data?.length || 0,
-        });
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch stats
+        const skStatsRes = await skPerhutananApi.getStats();
+        setStats(skStatsRes.data.data || { total: 0, inProgress: 0, waitingRevision: 0, completed: 0, overdue: 0 });
+
+        // Fetch pending SK for each jabatan user
+        const allPending: any[] = [];
+        for (const jabatanCode of userJabatanCodes) {
+          try {
+            const res = await skPerhutananApi.getPendingByJabatan(jabatanCode);
+            if (res.data.data) {
+              allPending.push(...res.data.data.map((sk: any) => ({
+                ...sk,
+                myJabatan: jabatanCode,
+                myJabatanName: JABATAN_STEPS[jabatanCode]?.name || jabatanCode,
+              })));
+            }
+          } catch (e) {
+            console.error(`Failed to fetch pending for ${jabatanCode}:`, e);
+          }
+        }
+        setPendingList(allPending);
       } catch (err) {
-        console.error('Failed to fetch stats:', err);
+        console.error('Failed to fetch dashboard data:', err);
       } finally {
         setLoading(false);
       }
     };
-    fetchStats();
-  }, []);
+    if (userJabatanCodes.length > 0) {
+      fetchData();
+    } else {
+      setLoading(false);
+    }
+  }, [userJabatanCodes]);
 
-  const cards = [
-    {
-      title: 'Total Pengguna',
-      value: stats.totalUsers,
-      icon: <UserOutlined style={{ fontSize: 32, color: '#14b8a6' }} />,
-      color: '#f0fdfb',
-    },
-    {
-      title: 'Pengguna Aktif',
-      value: stats.activeUsers,
-      icon: <CheckCircleOutlined style={{ fontSize: 32, color: '#22c55e' }} />,
-      color: '#f0fdf4',
-    },
-    {
-      title: 'Total Role',
-      value: stats.totalRoles,
-      icon: <TeamOutlined style={{ fontSize: 32, color: '#3b82f6' }} />,
-      color: '#eff6ff',
-    },
-    {
-      title: 'Total Permission',
-      value: stats.totalPermissions,
-      icon: <LockOutlined style={{ fontSize: 32, color: '#a855f7' }} />,
-      color: '#faf5ff',
-    },
-  ];
+  const getJabatanInfo = (jabatanCode: string) => JABATAN_STEPS[jabatanCode] || { name: jabatanCode, steps: [] };
+
+  const getStepInfo = (jabatanCode: string, currentStep: number) => {
+    const info = getJabatanInfo(jabatanCode);
+    const currentStepInfo = info.steps.find(s => s.num === currentStep);
+    return currentStepInfo || { name: `Step ${currentStep}`, action: '-' };
+  };
 
   return (
     <div>
       <Title level={4} style={{ marginBottom: 24 }}>Dashboard</Title>
-      <Row gutter={[16, 16]}>
-        {cards.map((card, i) => (
-          <Col xs={24} sm={12} lg={6} key={i}>
-            <Card loading={loading} style={{ borderRadius: 12, background: card.color }}>
-              <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <Statistic valueStyle={{ fontSize: 28, fontWeight: 700 }} value={card.value} title={card.title} />
-                  {card.icon}
-                </div>
-              </Space>
-            </Card>
-          </Col>
-        ))}
+
+      {/* Info Jabatan User */}
+      <Card style={{ marginBottom: 24, borderRadius: 12, background: '#f6ffed' }}>
+        <Space direction="vertical" size={4} style={{ width: '100%' }}>
+          <Text strong style={{ fontSize: 16 }}>Jabatan Anda:</Text>
+          <Space wrap>
+            {userJabatanCodes.map((jabatanCode: string) => {
+              const info = getJabatanInfo(jabatanCode);
+              return (
+                <Tag key={jabatanCode} color="green" style={{ fontSize: 14, padding: '4px 12px' }}>
+                  {info.name}
+                </Tag>
+              );
+            })}
+          </Space>
+          <Text type="secondary" style={{ marginTop: 8 }}>
+            {user?.fullname} - Anda memiliki {pendingList.length} tugas yang menunggu
+          </Text>
+        </Space>
+      </Card>
+
+      {/* Statistik SK */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={12} sm={6}>
+          <Card loading={loading} style={{ borderRadius: 12, background: '#e6f4ff' }}>
+            <Statistic
+              valueStyle={{ fontSize: 28, fontWeight: 700 }}
+              value={stats.total}
+              title="Total SK"
+              prefix={<FileTextOutlined style={{ color: '#1890ff' }} />}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card loading={loading} style={{ borderRadius: 12, background: '#fff7e6' }}>
+            <Statistic
+              valueStyle={{ fontSize: 28, fontWeight: 700 }}
+              value={stats.inProgress}
+              title="Sedang Diproses"
+              prefix={<ClockCircleOutlined style={{ color: '#fa8c16' }} />}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card loading={loading} style={{ borderRadius: 12, background: '#fffbe6' }}>
+            <Statistic
+              valueStyle={{ fontSize: 28, fontWeight: 700 }}
+              value={stats.waitingRevision}
+              title="Menunggu Revisi"
+              prefix={<WarningOutlined style={{ color: '#faad14' }} />}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card loading={loading} style={{ borderRadius: 12, background: '#f6ffed' }}>
+            <Statistic
+              valueStyle={{ fontSize: 28, fontWeight: 700 }}
+              value={stats.completed}
+              title="Selesai"
+              prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
+            />
+          </Card>
+        </Col>
+        <Col xs={12} sm={6}>
+          <Card loading={loading} style={{ borderRadius: 12, background: '#fff2f0' }}>
+            <Statistic
+              valueStyle={{ fontSize: 28, fontWeight: 700 }}
+              value={stats.overdue}
+              title="Lewat Deadline"
+              prefix={<WarningOutlined style={{ color: '#ff4d4f' }} />}
+            />
+          </Card>
+        </Col>
       </Row>
 
-      <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
-        <Col xs={24} lg={12}>
-          <Card title="Selamat Datang di SETDIT" style={{ borderRadius: 12 }}>
-            <p style={{ color: '#666', lineHeight: 1.8 }}>
-              <strong>SETDIT</strong> (Sistem Terpadu) adalah platform manajemen pengguna
-              dengan fitur Role-Based Access Control (RBAC). Sistem ini mendukung:
-            </p>
-            <ul style={{ color: '#666', lineHeight: 2 }}>
-              <li>Manajemen pengguna dengan approval workflow</li>
-              <li>Multi-role dan multi-permission per user</li>
-              <li>OTP verification untuk keamanan</li>
-              <li>WhatsApp gateway integration</li>
-              <li>Audit log untuk seluruh aktivitas sistem</li>
-            </ul>
+      {/* Daftar Tugas per Jabatan */}
+      {userJabatanCodes.map((jabatanCode: string) => {
+        const info = getJabatanInfo(jabatanCode);
+        const tugasJabatan = pendingList.filter(sk => sk.myJabatan === jabatanCode);
+
+        if (tugasJabatan.length === 0) return null;
+
+        return (
+          <Card
+            key={jabatanCode}
+            title={
+              <Space>
+                <span>{info.name}</span>
+                <Tag color="blue">{tugasJabatan.length} tugas</Tag>
+              </Space>
+            }
+            style={{ marginBottom: 16, borderRadius: 12 }}
+            extra={
+              <Button type="link" onClick={() => navigate('/sk-perhutanan')}>
+                Lihat Semua
+              </Button>
+            }
+          >
+            <List
+              loading={loading}
+              dataSource={tugasJabatan.slice(0, 5)}
+              renderItem={(sk: any) => {
+                const stepInfo = getStepInfo(jabatanCode, sk.current_step);
+                const isOverdue = new Date(sk.tanggal_deadline) < new Date() && sk.status !== 'COMPLETED';
+                return (
+                  <List.Item
+                    actions={[
+                      <Button
+                        key="process"
+                        type="primary"
+                        size="small"
+                        onClick={() => navigate(`/sk-perhutanan?detail=${sk.id}`)}
+                      >
+                        Proses
+                      </Button>
+                    ]}
+                  >
+                    <List.Item.Meta
+                      avatar={
+                        isOverdue
+                          ? <WarningOutlined style={{ fontSize: 24, color: '#ff4d4f' }} />
+                          : <ExclamationCircleOutlined style={{ fontSize: 24, color: '#fa8c16' }} />
+                      }
+                      title={
+                        <Space>
+                          <Text strong>{sk.perihal || 'Tanpa Perihal'}</Text>
+                          {isOverdue && <Tag color="red">LEWAT DEADLINE</Tag>}
+                        </Space>
+                      }
+                      description={
+                        <Space direction="vertical" size={0}>
+                          <Text type="secondary">
+                            <strong>{stepInfo.name}</strong> - {stepInfo.action}
+                          </Text>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            No. Surat: {sk.nomor_surat || '-'} | Deadline: {new Date(sk.tanggal_deadline).toLocaleDateString('id-ID')}
+                          </Text>
+                        </Space>
+                      }
+                    />
+                  </List.Item>
+                );
+              }}
+              locale={{ emptyText: 'Tidak ada tugas untuk jabatan ini' }}
+            />
           </Card>
-        </Col>
-        <Col xs={24} lg={12}>
-          <Card title="Informasi Sistem" style={{ borderRadius: 12 }}>
-            <ul style={{ color: '#666', lineHeight: 2 }}>
-              <li><strong>Versi:</strong> 1.0.0</li>
-              <li><strong>Database:</strong> PostgreSQL</li>
-              <li><strong>Auth:</strong> JWT + Refresh Token</li>
-              <li><strong>Security:</strong> Helmet + CORS + Rate Limit</li>
-              <li><strong>ORM:</strong> Prisma</li>
-            </ul>
-          </Card>
-        </Col>
-      </Row>
+        );
+      })}
+
+      {/* Jika tidak ada tugas */}
+      {pendingList.length === 0 && !loading && (
+        <Card style={{ borderRadius: 12, textAlign: 'center', padding: 40 }}>
+          <CheckCircleOutlined style={{ fontSize: 48, color: '#52c41a', marginBottom: 16 }} />
+          <Title level={4}>Semua Tugas Selesai!</Title>
+          <Text type="secondary">Tidak ada SK yang menunggu proses untuk jabatan Anda saat ini.</Text>
+        </Card>
+      )}
     </div>
   );
 }

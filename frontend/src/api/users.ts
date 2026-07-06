@@ -11,6 +11,7 @@ export interface User {
   position?: { id: number; name: string };
   unit?: { id: number; name: string };
   roles?: { role: { id: number; name: string } }[];
+  jabatan_codes?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -29,7 +30,8 @@ export const usersApi = {
   getById: (id: number) => api.get(`/users/${id}`),
   create: (data: Partial<User> & { password: string; role_ids?: number[] }) =>
     api.post('/users', data),
-  update: (id: number, data: Partial<User>) => api.put(`/users/${id}`, data),
+  update: (id: number, data: Partial<User> & { role_ids?: number[]; jabatan_code?: string }) =>
+    api.put(`/users/${id}`, data),
   delete: (id: number) => api.delete(`/users/${id}`),
   approve: (id: number, status: 'APPROVED' | 'REJECTED', notes?: string) =>
     api.put(`/users/${id}/approve`, { status, notes }),

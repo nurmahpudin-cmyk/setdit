@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { skPerhutananController } from './controller.js';
 import { authMiddleware } from '../../middleware/auth.js';
 import { requirePermission } from '../../middleware/rbac.js';
+import { auditMiddleware } from '../../middleware/audit.js';
 
 const router = Router();
 
@@ -155,7 +156,7 @@ router.get('/:id', skPerhutananController.findById.bind(skPerhutananController))
  *       201:
  *         description: SK created
  */
-router.post('/', requirePermission('sk_perhutanan.create'), skPerhutananController.create.bind(skPerhutananController));
+router.post('/', auditMiddleware('sk_perhutanan'), requirePermission('sk_perhutanan.create'), skPerhutananController.create.bind(skPerhutananController));
 
 /**
  * @swagger
@@ -188,7 +189,7 @@ router.post('/', requirePermission('sk_perhutanan.create'), skPerhutananControll
  *       200:
  *         description: SK updated
  */
-router.put('/:id', requirePermission('sk_perhutanan.edit'), skPerhutananController.update.bind(skPerhutananController));
+router.put('/:id', auditMiddleware('sk_perhutanan'), requirePermission('sk_perhutanan.edit'), skPerhutananController.update.bind(skPerhutananController));
 
 /**
  * @swagger
@@ -208,7 +209,7 @@ router.put('/:id', requirePermission('sk_perhutanan.edit'), skPerhutananControll
  *       200:
  *         description: SK submitted
  */
-router.post('/:id/submit', requirePermission('sk_perhutanan.submit'), skPerhutananController.submit.bind(skPerhutananController));
+router.post('/:id/submit', auditMiddleware('sk_perhutanan'), requirePermission('sk_perhutanan.submit'), skPerhutananController.submit.bind(skPerhutananController));
 
 /**
  * @swagger
@@ -240,7 +241,7 @@ router.post('/:id/submit', requirePermission('sk_perhutanan.submit'), skPerhutan
  *       200:
  *         description: SK processed
  */
-router.post('/:id/process', requirePermission('sk_perhutanan.process'), skPerhutananController.processStep.bind(skPerhutananController));
+router.post('/:id/process', auditMiddleware('sk_perhutanan'), requirePermission('sk_perhutanan.process'), skPerhutananController.processStep.bind(skPerhutananController));
 
 /**
  * @swagger
@@ -270,7 +271,7 @@ router.post('/:id/process', requirePermission('sk_perhutanan.process'), skPerhut
  *       200:
  *         description: Nomor ND added
  */
-router.post('/:id/nomor-nd', requirePermission('sk_perhutanan.process'), skPerhutananController.addNomorND.bind(skPerhutananController));
+router.post('/:id/nomor-nd', auditMiddleware('sk_perhutanan'), requirePermission('sk_perhutanan.process'), skPerhutananController.addNomorND.bind(skPerhutananController));
 
 /**
  * @swagger
@@ -290,7 +291,7 @@ router.post('/:id/nomor-nd', requirePermission('sk_perhutanan.process'), skPerhu
  *       200:
  *         description: SK signed
  */
-router.post('/:id/sign', requirePermission('sk_perhutanan.process'), skPerhutananController.signSK.bind(skPerhutananController));
+router.post('/:id/sign', auditMiddleware('sk_perhutanan'), requirePermission('sk_perhutanan.process'), skPerhutananController.signSK.bind(skPerhutananController));
 
 /**
  * @swagger
@@ -320,7 +321,7 @@ router.post('/:id/sign', requirePermission('sk_perhutanan.process'), skPerhutana
  *       200:
  *         description: Nomor SK added
  */
-router.post('/:id/nomor-sk', requirePermission('sk_perhutanan.process'), skPerhutananController.addNomorSK.bind(skPerhutananController));
+router.post('/:id/nomor-sk', auditMiddleware('sk_perhutanan'), requirePermission('sk_perhutanan.process'), skPerhutananController.addNomorSK.bind(skPerhutananController));
 
 /**
  * @swagger
@@ -340,6 +341,6 @@ router.post('/:id/nomor-sk', requirePermission('sk_perhutanan.process'), skPerhu
  *       200:
  *         description: SK finalized
  */
-router.post('/:id/finalize', requirePermission('sk_perhutanan.process'), skPerhutananController.finalize.bind(skPerhutananController));
+router.post('/:id/finalize', auditMiddleware('sk_perhutanan'), requirePermission('sk_perhutanan.process'), skPerhutananController.finalize.bind(skPerhutananController));
 
 export const skPerhutananRouter = router;

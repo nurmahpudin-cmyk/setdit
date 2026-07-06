@@ -223,6 +223,7 @@ async function main() {
             'jadwal.view', 'jadwal.create', 'jadwal.update', 'jadwal.delete', 'jadwal.manage',
             'pegawai.view', 'pegawai.create', 'pegawai.update', 'pegawai.delete', 'pegawai.manage',
             'dashboard.view',
+            'sk_perhutanan.view', 'sk_perhutanan.process',
           ],
         },
       },

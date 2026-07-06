@@ -6,7 +6,6 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckCircleOutlined, MoreOutlined } from '@ant-design/icons';
 import { usersApi, User } from '../../api/users';
 import { rolesApi } from '../../api/roles';
-import { positionsApi } from '../../api/settings';
 import { unitsApi } from '../../api/settings';
 
 const { useBreakpoint } = Grid;
@@ -21,6 +20,16 @@ const statusColors: Record<string, string> = {
   REJECTED: 'default',
 };
 
+const JABATAN_OPTIONS = [
+  { label: 'TU Setditjen', value: 'TU_SETDITJEN' },
+  { label: 'Kasubbag TU', value: 'KASUBBAG_TU' },
+  { label: 'Setditjen PS', value: 'SEKDITJEN_PS' },
+  { label: 'Kabag PEHK', value: 'KABAG_PEHKT' },
+  { label: 'Ketua Pokja Hukum', value: 'KETUA_POKJA_HUKUM' },
+  { label: 'Anggota Pokja Hukum', value: 'ANGGOTA_POKJA_HUKUM' },
+  { label: 'Dirjen PS', value: 'DIRJEN_PS' },
+];
+
 export default function UsersPage() {
   const [data, setData] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
@@ -29,7 +38,6 @@ export default function UsersPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [roles, setRoles] = useState<any[]>([]);
-  const [positions, setPositions] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
   const [form] = Form.useForm();
   const screens = useBreakpoint();
@@ -45,13 +53,11 @@ export default function UsersPage() {
   };
 
   const fetchMeta = async () => {
-    const [r, p, u] = await Promise.all([
+    const [r, u] = await Promise.all([
       rolesApi.getAll().catch(() => ({ data: { data: [] } })),
-      positionsApi.getAll().catch(() => ({ data: { data: [] } })),
       unitsApi.getAll().catch(() => ({ data: { data: [] } })),
     ]);
     setRoles(r.data.data);
-    setPositions(p.data.data);
     setUnits(u.data.data);
   };
 
@@ -122,13 +128,6 @@ export default function UsersPage() {
       render: (s: string) => <Tag color={statusColors[s]}>{s}</Tag>,
     },
     {
-      title: 'Jabatan',
-      dataIndex: 'position',
-      key: 'position',
-      render: (p: any) => p?.name || '-',
-      responsive: ['lg'],
-    },
-    {
       title: 'Unit',
       dataIndex: 'unit',
       key: 'unit',
@@ -139,9 +138,18 @@ export default function UsersPage() {
       title: 'Role',
       dataIndex: 'roles',
       key: 'roles',
-      responsive: ['xl'],
+      responsive: ['lg'],
       render: (r: any[]) => r?.map((ur) => (
         <Tag key={ur.role.id}>{ur.role.name}</Tag>
+      )),
+    },
+    {
+      title: 'Kode Jabatan',
+      dataIndex: 'jabatan_codes',
+      key: 'jabatan_codes',
+      responsive: ['lg'],
+      render: (codes: string[]) => codes?.map((code) => (
+        <Tag key={code} color="blue">{code}</Tag>
       )),
     },
     {
@@ -153,7 +161,13 @@ export default function UsersPage() {
         const items: any[] = [
           { key: 'edit', label: 'Edit', icon: <EditOutlined />, onClick: () => {
             setEditing(record);
-            form.setFieldsValue({ ...record, role_ids: record.roles?.map((r: any) => r.role.id) });
+            // Get jabatan_code from assignments
+            const jabatan_code = record.jabatan_codes?.[0];
+            form.setFieldsValue({
+              ...record,
+              role_ids: record.roles?.map((r: any) => r.role.id),
+              jabatan_code
+            });
             setOpen(true);
           }},
           { key: 'delete', label: 'Hapus', icon: <DeleteOutlined />, danger: true, onClick: () => handleDelete(record.id) },
@@ -233,11 +247,11 @@ export default function UsersPage() {
               <Input.Password />
             </Form.Item>
           )}
-          <Form.Item name="position_id" label="Jabatan">
-            <Select allowClear options={positions.map((p) => ({ label: p.name, value: p.id }))} />
-          </Form.Item>
           <Form.Item name="unit_id" label="Unit Kerja">
             <Select allowClear options={units.map((u) => ({ label: u.name, value: u.id }))} />
+          </Form.Item>
+          <Form.Item name="jabatan_code" label="Kode Jabatan">
+            <Select allowClear options={JABATAN_OPTIONS} placeholder="Pilih Jabatan" />
           </Form.Item>
           <Form.Item name="role_ids" label="Role">
             <Select mode="multiple" options={roles.map((r) => ({ label: r.name, value: r.id }))} />

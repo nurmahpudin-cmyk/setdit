@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { authMiddleware } from '../../middleware/auth.js';
 import { requirePermission, requireAnyPermission } from '../../middleware/rbac.js';
+import { auditMiddleware } from '../../middleware/audit.js';
 import { jadwalPimpinanController } from './controller.js';
+import { cronService } from '../../services/cron.js';
 
 const router = Router();
 
@@ -170,6 +172,7 @@ router.get(
  */
 router.post(
   '/',
+  auditMiddleware('jadwal_pimpinan'),
   requireAnyPermission('jadwal.create', 'jadwal.manage', 'admin.manage'),
   jadwalPimpinanController.create.bind(jadwalPimpinanController)
 );
@@ -218,6 +221,7 @@ router.post(
  */
 router.put(
   '/:id',
+  auditMiddleware('jadwal_pimpinan'),
   requireAnyPermission('jadwal.update', 'jadwal.manage', 'admin.manage'),
   jadwalPimpinanController.update.bind(jadwalPimpinanController)
 );
@@ -242,6 +246,7 @@ router.put(
  */
 router.delete(
   '/:id',
+  auditMiddleware('jadwal_pimpinan'),
   requireAnyPermission('jadwal.delete', 'jadwal.manage', 'admin.manage'),
   jadwalPimpinanController.delete.bind(jadwalPimpinanController)
 );
@@ -272,6 +277,31 @@ router.post(
   '/send-notification',
   requireAnyPermission('jadwal.manage', 'admin.manage'),
   jadwalPimpinanController.sendNotification.bind(jadwalPimpinanController)
+);
+
+/**
+ * @swagger
+ * /api/jadwal-pimpinan/cron/send-weekly:
+ *   post:
+ *     tags: [Jadwal Pimpinan]
+ *     summary: Trigger weekly jadwal notification cron job manually
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Cron job triggered
+ */
+router.post(
+  '/cron/send-weekly',
+  requireAnyPermission('jadwal.manage', 'admin.manage'),
+  async (req, res) => {
+    try {
+      await cronService.sendWeeklyJadwalNotification();
+      res.json({ success: true, message: 'Weekly notification job triggered' });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
 );
 
 export const jadwalPimpinanRouter = router;

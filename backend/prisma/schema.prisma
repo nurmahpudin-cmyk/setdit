@@ -496,7 +496,7 @@ model tr_sk_perhutanan {
 model tr_sk_workflow {
   id           Int       @id @default(autoincrement())
   sk_id        Int
-  step_num     Int // 1-15
+  step_num     Int // 1-17
   step_name    String
   jabatan_code String // SEKDITJEN_PS, KABAG_PEHKT, etc.
   assignee_id  Int? // User yang ditugaskan

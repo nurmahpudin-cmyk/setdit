@@ -46,6 +46,7 @@ export class UsersService {
           position: true,
           unit: true,
           roles: { include: { role: true } },
+          jabatan_assignments: { where: { is_active: true }, select: { jabatan_code: true } },
         },
         skip,
         take: limit,
@@ -55,8 +56,11 @@ export class UsersService {
     ]);
 
     const sanitized = users.map((u) => {
-      const { password, ...rest } = u;
-      return rest;
+      const { password, jabatan_assignments, ...rest } = u;
+      return {
+        ...rest,
+        jabatan_codes: jabatan_assignments.map((ja) => ja.jabatan_code),
+      };
     });
 
     return { users: sanitized, pagination: { page, limit, total } };
@@ -70,6 +74,7 @@ export class UsersService {
         unit: true,
         roles: { include: { role: true } },
         permissions: { include: { permission: true } },
+        jabatan_assignments: { where: { is_active: true }, select: { jabatan_code: true } },
       },
     });
 
@@ -77,8 +82,11 @@ export class UsersService {
       throw new Error('User not found');
     }
 
-    const { password, ...rest } = user;
-    return rest;
+    const { password, jabatan_assignments, ...rest } = user;
+    return {
+      ...rest,
+      jabatan_codes: jabatan_assignments.map((ja) => ja.jabatan_code),
+    };
   }
 
   async create(data: {
@@ -87,14 +95,13 @@ export class UsersService {
     email: string;
     phone: string;
     password: string;
-    position_id?: number;
     unit_id?: number;
     role_ids?: number[];
     jabatan_code?: string;
   }) {
     const existing = await prisma.mst_users.findFirst({
       where: {
-        OR: [{ email: data.email }, { username: data.username }, { phone: data.phone }],
+        OR: [{ email: data.email }, { username: data.username }],
       },
     });
 
@@ -112,7 +119,6 @@ export class UsersService {
         email: data.email,
         phone: data.phone,
         password: hashedPassword,
-        position_id: data.position_id,
         unit_id: data.unit_id,
         status: 'ACTIVE',
         is_verified: true,
@@ -121,7 +127,6 @@ export class UsersService {
           : undefined,
       },
       include: {
-        position: true,
         unit: true,
         roles: { include: { role: true } },
       },
@@ -139,7 +144,10 @@ export class UsersService {
     }
 
     const { password, ...rest } = user;
-    return rest;
+    return {
+      ...rest,
+      jabatan_codes: data.jabatan_code ? [data.jabatan_code] : [],
+    };
   }
 
   async update(id: number, data: Partial<{
@@ -148,13 +156,17 @@ export class UsersService {
     phone: string;
     position_id: number;
     unit_id: number;
+    role_ids: number[];
+    jabatan_code: string | null;
   }>) {
     const user = await prisma.mst_users.findUnique({ where: { id, deleted_at: null } });
     if (!user) throw new Error('User not found');
 
+    const { role_ids, jabatan_code, ...userData } = data;
+
     const updated = await prisma.mst_users.update({
       where: { id },
-      data,
+      data: userData,
       include: {
         position: true,
         unit: true,
@@ -162,8 +174,53 @@ export class UsersService {
       },
     });
 
+    // Handle role_ids assignment
+    if (role_ids !== undefined) {
+      await prisma.tr_user_roles.deleteMany({ where: { user_id: id } });
+      if (role_ids.length > 0) {
+        await prisma.tr_user_roles.createMany({
+          data: role_ids.map((role_id) => ({ user_id: id, role_id })),
+        });
+      }
+    }
+
+    // Handle jabatan_code assignment
+    if (jabatan_code !== undefined) {
+      // Delete existing assignments
+      await prisma.tr_jabatan_assignment.deleteMany({
+        where: { user_id: id },
+      });
+
+      // Create new assignment if provided
+      if (jabatan_code) {
+        await prisma.tr_jabatan_assignment.create({
+          data: {
+            user_id: id,
+            jabatan_code: jabatan_code,
+            is_active: true,
+          },
+        });
+      }
+    }
+
+    // Get updated jabatan_codes
+    const assignments = await prisma.tr_jabatan_assignment.findMany({
+      where: { user_id: id, is_active: true },
+      select: { jabatan_code: true },
+    });
+
+    // Get updated roles
+    const roles = await prisma.tr_user_roles.findMany({
+      where: { user_id: id },
+      include: { role: true },
+    });
+
     const { password, ...rest } = updated;
-    return rest;
+    return {
+      ...rest,
+      roles,
+      jabatan_codes: assignments.map((a) => a.jabatan_code),
+    };
   }
 
   async delete(id: number) {

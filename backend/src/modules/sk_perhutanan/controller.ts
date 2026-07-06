@@ -44,7 +44,7 @@ const updateSchema = z.object({
 });
 
 const processStepSchema = z.object({
-  catatan: z.string().optional(),
+  catatan: z.string().min(1, 'Catatan wajib diisi'),
   kesimpulan: z.enum([
     'TELAAH',
     'PERBAIKAN_DIREKTORAT',
@@ -53,6 +53,8 @@ const processStepSchema = z.object({
     'DISTRIBUSI_FINALISASI',
     'FINALISASI',
     'APPROVE_FINALISASI',
+    'DISPOSISI',
+    'DISTRIBUSI',
   ]).optional(),
   assignee_id: z.number().optional(),
   nomor_nd_sk: z.string().optional(),
@@ -74,7 +76,7 @@ const nomorSKSchema = z.object({
 export class SkPerhutananController {
   async findAll(req: Request, res: Response) {
     try {
-      const { page, limit, search, status, unit_pengusul, start_date, end_date, jabatan_code } = req.query;
+      const { page, limit, search, status, unit_pengusul, start_date, end_date, jabatan_code, date_field, search_field, year } = req.query;
       const authReq = req as AuthRequest;
       const userId = authReq.user?.id;
 
@@ -87,6 +89,9 @@ export class SkPerhutananController {
         start_date: start_date ? String(start_date) : undefined,
         end_date: end_date ? String(end_date) : undefined,
         jabatan_code: jabatan_code ? String(jabatan_code) : undefined,
+        date_field: date_field ? String(date_field) : undefined,
+        search_field: search_field ? String(search_field) : undefined,
+        year: year ? parseInt(String(year)) : undefined,
         userId,
       });
 
@@ -154,7 +159,8 @@ export class SkPerhutananController {
       const result = await skPerhutananService.processStep(
         parseInt(req.params.id),
         data as any,
-        authReq.user!.id
+        authReq.user!.id,
+        authReq.user!.jabatan_codes || []
       );
       apiResponse(res, result, 'Step berhasil diproses');
     } catch (error: any) {

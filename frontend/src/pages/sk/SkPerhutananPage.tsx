@@ -46,22 +46,23 @@ const { TextArea } = Input;
 
 // Workflow steps display configuration
 const WORKFLOW_STEPS = [
-  { num: 1, name: 'Input Admin TU', color: '#1890ff' },
-  { num: 2, name: 'Setditjen PS', color: '#1890ff' },
-  { num: 3, name: 'Kabag PEHK', color: '#1890ff' },
-  { num: 4, name: 'Distribusi Ke Anggota', color: '#1890ff' },
-  { num: 5, name: 'Telaah Anggota', color: '#1890ff' },
-  { num: 6, name: 'Approve Ketua', color: '#1890ff' },
-  { num: 7, name: 'Kabag PEHK', color: '#1890ff' },
-  { num: 8, name: 'Kasubbag TU', color: '#1890ff' },
-  { num: 9, name: 'TTD Setditjen', color: '#1890ff' },
-  { num: 10, name: 'Admin TU Penomoran ND', color: '#1890ff' },
-  { num: 11, name: 'Dirjen PS', color: '#1890ff' },
-  { num: 12, name: 'Admin TU Penomoran SK', color: '#1890ff' },
-  { num: 13, name: 'Distribusi SK', color: '#1890ff' },
-  { num: 14, name: 'Finalisasi Anggota', color: '#1890ff' },
-  { num: 15, name: 'Kabag PEHK TTD Salinan', color: '#1890ff' },
-  { num: 16, name: 'Arsip & Scan', color: '#52c41a' },
+  { num: 1, name: 'Admin TU Input', color: '#1890ff', jabatan: 'TU_SETDITJEN' },
+  { num: 2, name: 'Setditjen PS', color: '#1890ff', jabatan: 'SEKDITJEN_PS' },
+  { num: 3, name: 'Kabag PEHK', color: '#1890ff', jabatan: 'KABAG_PEHKT' },
+  { num: 4, name: 'Distribusi Ke Anggota', color: '#1890ff', jabatan: 'KETUA_POKJA_HUKUM' },
+  { num: 5, name: 'Telaah Anggota', color: '#1890ff', jabatan: 'ANGGOTA_POKJA_HUKUM' },
+  { num: 6, name: 'Approve Ketua', color: '#1890ff', jabatan: 'KETUA_POKJA_HUKUM' },
+  { num: 7, name: 'Kabag PEHK', color: '#1890ff', jabatan: 'KABAG_PEHKT' },
+  { num: 8, name: 'Kasubbag TU', color: '#1890ff', jabatan: 'KASUBBAG_TU' },
+  { num: 9, name: 'TTD Setditjen', color: '#1890ff', jabatan: 'SEKDITJEN_PS' },
+  { num: 10, name: 'Admin TU Penomoran ND', color: '#1890ff', jabatan: 'TU_SETDITJEN' },
+  { num: 11, name: 'Dirjen PS', color: '#1890ff', jabatan: 'DIRJEN_PS' },
+  { num: 12, name: 'Admin TU Penomoran SK', color: '#1890ff', jabatan: 'TU_SETDITJEN' },
+  { num: 13, name: 'Distribusi SK', color: '#1890ff', jabatan: 'KETUA_POKJA_HUKUM' },
+  { num: 14, name: 'Finalisasi Anggota', color: '#1890ff', jabatan: 'ANGGOTA_POKJA_HUKUM' },
+  { num: 15, name: 'Approve Finalisasi', color: '#1890ff', jabatan: 'KETUA_POKJA_HUKUM' },
+  { num: 16, name: 'Kabag PEHK TTD Salinan', color: '#1890ff', jabatan: 'KABAG_PEHKT' },
+  { num: 17, name: 'Arsip & Scan', color: '#52c41a', jabatans: ['KETUA_POKJA_HUKUM', 'TU_SETDITJEN'] },
 ];
 
 export default function SkPerhutananPage() {
@@ -681,16 +682,24 @@ export default function SkPerhutananPage() {
           setProcessModalVisible(false);
         }}
         footer={[
-          (selectedSK?.status === 'IN_PROGRESS' || selectedSK?.status === 'WAITING_REVISION') && selectedSK?.current_step !== 16 && (
-            <Button
-              key="process"
-              type="primary"
-              icon={<CheckOutlined />}
-              onClick={() => setProcessModalVisible(true)}
-            >
-              Proses Workflow
-            </Button>
-          ),
+          (selectedSK?.status === 'IN_PROGRESS' || selectedSK?.status === 'WAITING_REVISION' || selectedSK?.status === 'APPROVED') && (() => {
+            const step = WORKFLOW_STEPS.find(s => s.num === selectedSK?.current_step);
+            const canProcess = step && (
+              step.jabatans
+                ? step.jabatans.some((j: string) => user?.jabatan_codes?.includes(j))
+                : user?.jabatan_codes?.includes(step.jabatan)
+            );
+            return canProcess && (
+              <Button
+                key="process"
+                type="primary"
+                icon={<CheckOutlined />}
+                onClick={() => setProcessModalVisible(true)}
+              >
+                Proses Workflow
+              </Button>
+            );
+          })(),
           <Button key="close" onClick={() => setDetailVisible(false)}>
             Tutup
           </Button>,
@@ -798,6 +807,14 @@ export default function SkPerhutananPage() {
                       <Col xs={24} sm={12}>
                         <Text type="secondary">Konseptor:</Text>
                         <div>{selectedSK.konseptor || '-'}</div>
+                      </Col>
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Drafter:</Text>
+                        <div>{selectedSK.stages?.find(s => s.step_num === 4)?.assignee?.fullname || '-'}</div>
+                      </Col>
+                      <Col xs={24} sm={12}>
+                        <Text type="secondary">Finalisasi:</Text>
+                        <div>{selectedSK.stages?.find(s => s.step_num === 14)?.assignee?.fullname || '-'}</div>
                       </Col>
                     </Row>
 
@@ -1225,7 +1242,7 @@ export default function SkPerhutananPage() {
             </Form.Item>
           )}
 
-          {/* Step 15: Kabag PEHK TTD Salinan */}
+          {/* Step 15: Kirim ke Ketua Pokja */}
           {selectedSK?.current_step === 15 && (
             <Form.Item
               name="kesimpulan"
@@ -1235,7 +1252,23 @@ export default function SkPerhutananPage() {
             >
               <Select
                 options={[
-                  { label: 'Approve Finalisasi - Lanjut ke Arsip & Scan', value: 'APPROVE_FINALISASI' },
+                  { label: 'Approve Finalisasi - Lanjut ke Kabag PEHK TTD Salinan', value: 'APPROVE_FINALISASI' },
+                ]}
+              />
+            </Form.Item>
+          )}
+
+          {/* Step 16: Kabag PEHK TTD Salinan */}
+          {selectedSK?.current_step === 16 && (
+            <Form.Item
+              name="kesimpulan"
+              label="Kesimpulan"
+              initialValue="APPROVE_FINALISASI"
+              rules={[{ required: true, message: 'Harus dipilih' }]}
+            >
+              <Select
+                options={[
+                  { label: 'TTD Salinan - Lanjut ke Arsip & Scan', value: 'APPROVE_FINALISASI' },
                 ]}
               />
             </Form.Item>
@@ -1257,8 +1290,12 @@ export default function SkPerhutananPage() {
             </Form.Item>
           )}
 
-          <Form.Item name="catatan" label="Catatan">
-            <Input.TextArea rows={4} placeholder="Masukkan catatan jika ada..." />
+          <Form.Item
+            name="catatan"
+            label="Catatan"
+            rules={[{ required: true, message: 'Catatan wajib diisi' }]}
+          >
+            <Input.TextArea rows={4} placeholder="Masukkan catatan..." />
           </Form.Item>
         </Form>
       </Modal>

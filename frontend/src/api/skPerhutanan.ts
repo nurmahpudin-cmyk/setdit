@@ -108,6 +108,9 @@ export interface SKQuery {
   start_date?: string;
   end_date?: string;
   jabatan_code?: string;
+  date_field?: string;
+  search_field?: string;
+  year?: number;
   userId?: number;
 }
 

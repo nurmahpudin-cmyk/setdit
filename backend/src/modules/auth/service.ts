@@ -110,20 +110,20 @@ export class AuthService {
       data: { failed_login: 0, locked_until: null },
     });
 
-    const tokens = this.generateTokens(user);
-
-    // Store refresh token
-    refreshTokenCache.set(`refresh:${user.id}`, tokens.refreshToken, 7 * 24 * 60 * 60);
-
-    // Get user's jabatan assignments
+    // Get user's jabatan assignments BEFORE generating tokens
     const jabatanAssignments = await prisma.tr_jabatan_assignment.findMany({
       where: { user_id: user.id, is_active: true },
       select: { jabatan_code: true },
     });
     const jabatan_codes = jabatanAssignments.map(ja => ja.jabatan_code);
-    console.log('[LOGIN DEBUG] User ID:', user.id);
-    console.log('[LOGIN DEBUG] Jabatan assignments:', jabatanAssignments);
-    console.log('[LOGIN DEBUG] jabatan_codes:', jabatan_codes);
+
+    // Add jabatan_codes to user object for JWT
+    const userWithJabatan = { ...user, jabatan_codes };
+
+    const tokens = this.generateTokens(userWithJabatan);
+
+    // Store refresh token
+    refreshTokenCache.set(`refresh:${user.id}`, tokens.refreshToken, 7 * 24 * 60 * 60);
 
     await createAuditLog(req, 'auth', 'login');
 
@@ -345,7 +345,12 @@ export class AuthService {
   }
 
   private generateTokens(user: any) {
-    const payload = { id: user.id, email: user.email, username: user.username };
+    const payload = {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      jabatan_codes: user.jabatan_codes || [],
+    };
     return {
       accessToken: generateAccessToken(payload),
       refreshToken: generateRefreshToken(payload),
