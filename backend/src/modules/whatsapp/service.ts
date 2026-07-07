@@ -33,16 +33,25 @@ export class WhatsAppService {
       console.log(`[WhatsApp] Found ${sessions.length} session(s) to reconnect...`);
 
       for (const session of sessions) {
-        try {
-          await this.initClient(session.id, session.name);
-          console.log(`[WhatsApp] Reconnecting session ${session.id} (${session.name})...`);
-        } catch (err) {
+        // Run each reconnect in isolated manner - don't let one crash affect others
+        this.reconnectSession(session.id, session.name).catch((err) => {
           console.error(`[WhatsApp] Failed to reconnect session ${session.id}:`, err);
-        }
+        });
       }
     } catch (err) {
       console.error('[WhatsApp] Error initializing sessions:', err);
     }
+  }
+
+  private async reconnectSession(sessionId: number, sessionName: string): Promise<void> {
+    // Check if already connected
+    if (clients.has(sessionId)) {
+      console.log(`[WhatsApp] Session ${sessionId} already connected`);
+      return;
+    }
+
+    console.log(`[WhatsApp] Reconnecting session ${sessionId} (${sessionName})...`);
+    await this.initClient(sessionId, sessionName);
   }
 
   async getSessions() {
@@ -153,28 +162,51 @@ export class WhatsAppService {
       });
     });
 
-    client.on('disconnected', async () => {
-      console.log(`[WhatsApp] Client disconnected for session ${sessionId}`);
+    client.on('disconnected', async (reason) => {
+      console.log(`[WhatsApp] Client disconnected for session ${sessionId}:`, reason);
       clients.delete(sessionId);
       qrCodes.delete(sessionId);
-      await prisma.wa_sessions.update({
-        where: { id: sessionId },
-        data: { is_active: false },
-      });
+      try {
+        await prisma.wa_sessions.update({
+          where: { id: sessionId },
+          data: { is_active: false },
+        });
+      } catch (e) {
+        console.error('[WhatsApp] Failed to update session status:', e);
+      }
     });
 
     client.on('message', async (msg) => {
-      console.log(`[WhatsApp] Message received in session ${sessionId}:`, msg.body);
+      // Only log incoming messages in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[WhatsApp] Message received in session ${sessionId}:`, msg.body);
+      }
     });
 
     client.on('auth_failure', async (msg) => {
       console.error(`[WhatsApp] Auth failure for session ${sessionId}:`, msg);
       clients.delete(sessionId);
       qrCodes.delete(sessionId);
-      await prisma.wa_sessions.update({
-        where: { id: sessionId },
-        data: { is_active: false },
-      });
+      try {
+        await prisma.wa_sessions.update({
+          where: { id: sessionId },
+          data: { is_active: false },
+        });
+      } catch (e) {
+        console.error('[WhatsApp] Failed to update session status:', e);
+      }
+    });
+
+    client.on('change_state', (state) => {
+      console.log(`[WhatsApp] State change for session ${sessionId}:`, state);
+    });
+
+    client.on('loading_screen', (percent, message) => {
+      console.log(`[WhatsApp] Loading session ${sessionId}: ${percent}% - ${message}`);
+    });
+
+    client.on('error', (err) => {
+      console.error(`[WhatsApp] Client error for session ${sessionId}:`, err);
     });
 
     clients.set(sessionId, client);
@@ -263,10 +295,15 @@ export class WhatsAppService {
 
       return { message: 'Message sent successfully', log_id: log.id };
     } catch (error: any) {
-      await prisma.wa_logs.update({
-        where: { id: log.id },
-        data: { status: 'FAILED', error: error.message },
-      });
+      // Update log with error but don't crash
+      try {
+        await prisma.wa_logs.update({
+          where: { id: log.id },
+          data: { status: 'FAILED', error: error.message },
+        });
+      } catch (logError) {
+        console.error('[WhatsApp] Failed to update log:', logError);
+      }
 
       throw new Error(`Failed to send message: ${error.message}`);
     }

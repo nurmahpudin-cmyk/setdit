@@ -1435,16 +1435,55 @@ Catatan: ${catatanText}`);
       return [];
     }
 
-    const skList = await prisma.tr_sk_perhutanan.findMany({
-      where: {
-        status: { in: ['IN_PROGRESS', 'WAITING_REVISION'] },
-        stages: {
-          some: {
-            jabatan_code: jabatanCode,
-            is_completed: false,
-          },
+    // Build where clause based on jabatan
+    const where: any = {
+      stages: {
+        some: {
+          jabatan_code: jabatanCode,
+          is_completed: false,
         },
       },
+    };
+
+    // Use same logic as findAll for consistency
+    if (jabatanCode === 'TU_SETDITJEN') {
+      // TU_SETDITJEN only sees step 1 (Draft), step 10 (Penomoran ND), step 12 (Penomoran SK)
+      where.status = { in: ['DRAFT', 'IN_PROGRESS', 'WAITING_REVISION', 'APPROVED'] };
+      where.current_step = { in: [1, 10, 12] };
+    } else if (jabatanCode === 'ANGGOTA_POKJA_HUKUM') {
+      // ANGGOTA_POKJA_HUKUM sees step 5 and 14 with assignee_id = userId
+      where.OR = [
+        {
+          stages: {
+            some: {
+              step_num: 4,
+              assignee_id: { in: userIds },
+            },
+          },
+          current_step: { in: [5] },
+          status: { in: ['IN_PROGRESS', 'WAITING_REVISION'] },
+        },
+        {
+          stages: {
+            some: {
+              step_num: 14,
+              assignee_id: { in: userIds },
+            },
+          },
+          current_step: { in: [14] },
+          status: { in: ['IN_PROGRESS', 'WAITING_REVISION'] },
+        },
+      ];
+    } else {
+      // Others only see their steps in IN_PROGRESS or WAITING_REVISION
+      const stepsForJabatan = WORKFLOW_STEPS.filter(s => s.jabatan === jabatanCode);
+      const stepNumbers = stepsForJabatan.map(s => s.num);
+      where.current_step = { in: stepNumbers };
+      where.status = { in: ['IN_PROGRESS', 'WAITING_REVISION'] };
+    }
+
+    const skList = await prisma.tr_sk_perhutanan.findMany({
+      where,
       include: {
         creator: { select: { fullname: true } },
         stages: { orderBy: { step_num: 'asc' } },

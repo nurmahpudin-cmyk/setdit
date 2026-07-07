@@ -26,7 +26,19 @@ import { skemaRouter } from './modules/skema/routes.js';
 import { externalRouter } from './modules/external/proxy.js';
 import { cronService } from './services/cron.js';
 
+// Global error handlers - prevent crashes
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT] Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[UNCAUGHT] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 const app = express();
+
+// Trust proxy for rate limiting behind nginx
+app.set('trust proxy', 1);
 
 // Security middleware - disable some for uploads
 app.use(helmet({
@@ -47,22 +59,18 @@ app.use('/uploads', (_req, res, next) => {
   next();
 }, express.static(path.join(process.cwd(), 'uploads')));
 
-// Rate limiting - only in production
-const isProd = config.nodeEnv === 'production';
+// Rate limiting
+app.use('/api/', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  message: { error: 'Too many requests, please try again later.' },
+}));
 
-if (isProd) {
-  app.use('/api/', rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-    message: { error: 'Too many requests, please try again later.' },
-  }));
-
-  app.use('/api/auth/', rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 10,
-    message: { error: 'Too many authentication attempts, please try again later.' },
-  }));
-}
+app.use('/api/auth/', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: { error: 'Too many authentication attempts, please try again later.' },
+}));
 
 // Health check
 app.get('/api/health', (_req, res) => {
@@ -107,11 +115,17 @@ app.listen(config.port, async () => {
   console.log(`🚀 Server running on http://localhost:${config.port}`);
   console.log(`📦 Environment: ${config.nodeEnv}`);
 
-  // Reconnect WhatsApp sessions
-  await whatsappService.initializeSessions();
+  // Reconnect WhatsApp sessions (non-blocking - don't crash server if WA fails)
+  whatsappService.initializeSessions().catch((err) => {
+    console.error('[STARTUP] WhatsApp initialization failed:', err);
+  });
 
-  // Start cron jobs
-  cronService.start();
+  // Start cron jobs (non-blocking)
+  try {
+    cronService.start();
+  } catch (err) {
+    console.error('[STARTUP] Cron service failed to start:', err);
+  }
 });
 
 export default app;

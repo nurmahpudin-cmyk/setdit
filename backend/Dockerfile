@@ -1,0 +1,42 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    musl-dev \
+    libtool \
+    autoconf \
+    automake \
+    pixman-dev \
+    cairo-dev \
+    jpeg-dev \
+    pango-dev \
+    giflib-dev \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    2>/dev/null || true
+
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+COPY package*.json ./
+RUN npm ci
+
+COPY prisma ./prisma
+RUN npx prisma generate
+
+COPY . .
+
+EXPOSE 5100
+
+ENV NODE_ENV=production
+ENV PORT=5100
+
+CMD ["sh", "-c", "npx tsx src/index.ts"]
