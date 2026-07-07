@@ -46,22 +46,22 @@ const { TextArea } = Input;
 
 // Workflow steps display configuration
 const WORKFLOW_STEPS = [
-  { num: 1, name: 'Admin TU Input', color: '#1890ff', jabatan: 'TU_SETDITJEN' },
-  { num: 2, name: 'Setditjen PS', color: '#1890ff', jabatan: 'SEKDITJEN_PS' },
-  { num: 3, name: 'Kabag PEHK', color: '#1890ff', jabatan: 'KABAG_PEHKT' },
-  { num: 4, name: 'Distribusi Ke Anggota', color: '#1890ff', jabatan: 'KETUA_POKJA_HUKUM' },
+  { num: 1, name: 'Input oleh Admin TU', color: '#1890ff', jabatan: 'TU_SETDITJEN' },
+  { num: 2, name: 'Disposisi Setditjen PS', color: '#1890ff', jabatan: 'SEKDITJEN_PS' },
+  { num: 3, name: 'Disposisi Kabag PEHKT', color: '#1890ff', jabatan: 'KABAG_PEHKT' },
+  { num: 4, name: 'Distribusi Ke Anggota oleh Ketua Pokja', color: '#1890ff', jabatan: 'KETUA_POKJA_HUKUM' },
   { num: 5, name: 'Telaah Anggota', color: '#1890ff', jabatan: 'ANGGOTA_POKJA_HUKUM' },
-  { num: 6, name: 'Approve Ketua', color: '#1890ff', jabatan: 'KETUA_POKJA_HUKUM' },
-  { num: 7, name: 'Kabag PEHK', color: '#1890ff', jabatan: 'KABAG_PEHKT' },
-  { num: 8, name: 'Kasubbag TU', color: '#1890ff', jabatan: 'KASUBBAG_TU' },
-  { num: 9, name: 'TTD Setditjen', color: '#1890ff', jabatan: 'SEKDITJEN_PS' },
-  { num: 10, name: 'Admin TU Penomoran ND', color: '#1890ff', jabatan: 'TU_SETDITJEN' },
-  { num: 11, name: 'Dirjen PS', color: '#1890ff', jabatan: 'DIRJEN_PS' },
-  { num: 12, name: 'Admin TU Penomoran SK', color: '#1890ff', jabatan: 'TU_SETDITJEN' },
-  { num: 13, name: 'Distribusi SK', color: '#1890ff', jabatan: 'KETUA_POKJA_HUKUM' },
-  { num: 14, name: 'Finalisasi Anggota', color: '#1890ff', jabatan: 'ANGGOTA_POKJA_HUKUM' },
-  { num: 15, name: 'Approve Finalisasi', color: '#1890ff', jabatan: 'KETUA_POKJA_HUKUM' },
-  { num: 16, name: 'Kabag PEHK TTD Salinan', color: '#1890ff', jabatan: 'KABAG_PEHKT' },
+  { num: 6, name: 'Approval Ketua Pokja', color: '#1890ff', jabatan: 'KETUA_POKJA_HUKUM' },
+  { num: 7, name: 'Approval Kabag PEHKT', color: '#1890ff', jabatan: 'KABAG_PEHKT' },
+  { num: 8, name: 'Approval Kasubbag TU', color: '#1890ff', jabatan: 'KASUBBAG_TU' },
+  { num: 9, name: 'Approval Setditjen', color: '#1890ff', jabatan: 'SEKDITJEN_PS' },
+  { num: 10, name: 'Penomoran ND Pengantar oleh Admin TU', color: '#1890ff', jabatan: 'TU_SETDITJEN' },
+  { num: 11, name: 'Approval Dirjen PS', color: '#1890ff', jabatan: 'DIRJEN_PS' },
+  { num: 12, name: 'Penomoran SK oleh Admin TU', color: '#1890ff', jabatan: 'TU_SETDITJEN' },
+  { num: 13, name: 'Distribusi SK ke Anggota', color: '#1890ff', jabatan: 'KETUA_POKJA_HUKUM' },
+  { num: 14, name: 'Proses Salin SK oleh Anggota', color: '#1890ff', jabatan: 'ANGGOTA_POKJA_HUKUM' },
+  { num: 15, name: 'Approval Salinan SK oleh Ketua Pokja', color: '#1890ff', jabatan: 'KETUA_POKJA_HUKUM' },
+  { num: 16, name: 'Approval Salinan SK oleh Kabag PEHKT', color: '#1890ff', jabatan: 'KABAG_PEHKT' },
   { num: 17, name: 'Arsip & Scan', color: '#52c41a', jabatans: ['KETUA_POKJA_HUKUM', 'TU_SETDITJEN'] },
 ];
 
@@ -288,19 +288,24 @@ export default function SkPerhutananPage() {
       case 'WAITING_REVISION': return 'warning';
       case 'APPROVED': return 'success';
       case 'SIGNED': return 'success';
+      case 'PROSES_SALINAN_SK': return 'processing';
       case 'COMPLETED': return 'success';
       default: return 'default';
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: string, currentStep?: number) => {
+    // Step-based display labels
+    if (status === 'COMPLETED') return 'Selesai';
+    if (status === 'APPROVED' && currentStep === 11) return 'Disetujui';
+    if (status === 'APPROVED') return 'Disetujui';
+    if (status === 'PROSES_SALINAN_SK') return 'Proses Salinan SK';
+
     switch (status) {
       case 'DRAFT': return 'Draft';
       case 'IN_PROGRESS': return 'Dalam Proses';
       case 'WAITING_REVISION': return 'Menunggu Revisi';
-      case 'APPROVED': return 'Disetujui';
       case 'SIGNED': return 'Ditandatangani';
-      case 'COMPLETED': return 'Selesai';
       default: return status;
     }
   };
@@ -361,9 +366,9 @@ export default function SkPerhutananPage() {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: screens.xs ? 100 : 130,
-      render: (status) => (
-        <Tag color={getStatusColor(status)}>{getStatusText(status)}</Tag>
+      width: screens.xs ? 100 : 150,
+      render: (status, record) => (
+        <Tag color={getStatusColor(status)}>{getStatusText(status, record.current_step)}</Tag>
       ),
     },
     {
@@ -640,6 +645,17 @@ export default function SkPerhutananPage() {
               </Form.Item>
             </Col>
             <Col xs={24} sm={8}>
+              <Form.Item name="jenis_sk" label="Jenis SK">
+                <Select
+                  placeholder="Pilih Jenis SK"
+                  options={[
+                    { label: 'SK PS', value: 'SK_PS' },
+                    { label: 'SK Penataan Areal Kerja (PAK)', value: 'SK_PAK' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={8}>
               <Form.Item name="penandatangan" label="Penandatangan">
                 <Input placeholder="Dirjen PS" />
               </Form.Item>
@@ -787,7 +803,7 @@ export default function SkPerhutananPage() {
                         <Text type="secondary">Status:</Text>
                         <div>
                           <Tag color={getStatusColor(selectedSK.status)}>
-                            {getStatusText(selectedSK.status)}
+                            {getStatusText(selectedSK.status, selectedSK.current_step)}
                           </Tag>
                           <span style={{ marginLeft: 8 }}>{getStepName(selectedSK.current_step)}</span>
                         </div>

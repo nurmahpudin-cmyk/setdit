@@ -3,23 +3,23 @@ import { whatsappService } from '../whatsapp/service.js';
 
 // Workflow steps configuration
 export const WORKFLOW_STEPS = [
-  { num: 1,  name: 'Input Admin TU',          jabatan: 'TU_SETDITJEN',      action: 'INPUT' },
-  { num: 2,  name: 'Setditjen PS',            jabatan: 'SEKDITJEN_PS',      action: 'DISPOSISI' },
-  { num: 3,  name: 'Kabag PEHK',              jabatan: 'KABAG_PEHKT',       action: 'DISPOSISI' },
-  { num: 4,  name: 'Distribusi Ke Anggota',  jabatan: 'KETUA_POKJA_HUKUM', action: 'DISTRIBUSI' },
-  { num: 5,  name: 'Telaah Anggota',          jabatan: 'ANGGOTA_POKJA_HUKUM', action: 'TELAAH' },
-  { num: 6,  name: 'Approve Ketua',           jabatan: 'KETUA_POKJA_HUKUM', action: 'APPROVE' },
-  { num: 7,  name: 'Kabag PEHK',              jabatan: 'KABAG_PEHKT',      action: 'TELAAH' },
-  { num: 8,  name: 'Kasubbag TU',             jabatan: 'KASUBBAG_TU',      action: 'TELAAH' },
-  { num: 9,  name: 'TTD Setditjen',           jabatan: 'SEKDITJEN_PS',      action: 'SIGN' },
-  { num: 10, name: 'Admin TU Penomoran ND',   jabatan: 'TU_SETDITJEN',     action: 'PENOMORAN' },
-  { num: 11, name: 'Dirjen PS',               jabatan: 'DIRJEN_PS',         action: 'SIGN' },
-  { num: 12, name: 'Admin TU Penomoran SK',   jabatan: 'TU_SETDITJEN',     action: 'NOMOR_SK' },
-  { num: 13, name: 'Distribusi SK',           jabatan: 'KETUA_POKJA_HUKUM', action: 'DISTRIBUSI' },
-  { num: 14, name: 'Finalisasi Anggota',      jabatan: 'ANGGOTA_POKJA_HUKUM', action: 'FINALIZE' },
-  { num: 15, name: 'Approve Finalisasi',    jabatan: 'KETUA_POKJA_HUKUM', action: 'APPROVE' },
-  { num: 16, name: 'Kabag PEHK TTD Salinan',  jabatan: 'KABAG_PEHKT',      action: 'SIGN_COPY' },
-  { num: 17, name: 'Arsip & Scan',             jabatan: 'KETUA_POKJA_HUKUM', action: 'ARCHIVE', notifyMultiple: ['KETUA_POKJA_HUKUM', 'TU_SETDITJEN'] },
+  { num: 1,  name: 'Input oleh Admin TU',              jabatan: 'TU_SETDITJEN',        action: 'INPUT' },
+  { num: 2,  name: 'Disposisi Setditjen PS',           jabatan: 'SEKDITJEN_PS',        action: 'DISPOSISI' },
+  { num: 3,  name: 'Disposisi Kabag PEHKT',            jabatan: 'KABAG_PEHKT',         action: 'DISPOSISI' },
+  { num: 4,  name: 'Distribusi Ke Anggota oleh Ketua Pokja', jabatan: 'KETUA_POKJA_HUKUM', action: 'DISTRIBUSI' },
+  { num: 5,  name: 'Telaah Anggota',                  jabatan: 'ANGGOTA_POKJA_HUKUM', action: 'TELAAH' },
+  { num: 6,  name: 'Approval Ketua Pokja',             jabatan: 'KETUA_POKJA_HUKUM',  action: 'APPROVE' },
+  { num: 7,  name: 'Approval Kabag PEHKT',             jabatan: 'KABAG_PEHKT',        action: 'APPROVE' },
+  { num: 8,  name: 'Approval Kasubbag TU',             jabatan: 'KASUBBAG_TU',         action: 'APPROVE' },
+  { num: 9,  name: 'Approval Setditjen',                jabatan: 'SEKDITJEN_PS',        action: 'APPROVE' },
+  { num: 10, name: 'Penomoran ND Pengantar oleh Admin TU', jabatan: 'TU_SETDITJEN',   action: 'PENOMORAN' },
+  { num: 11, name: 'Approval Dirjen PS',                jabatan: 'DIRJEN_PS',           action: 'APPROVE' },
+  { num: 12, name: 'Penomoran SK oleh Admin TU',       jabatan: 'TU_SETDITJEN',       action: 'NOMOR_SK' },
+  { num: 13, name: 'Distribusi SK ke Anggota',         jabatan: 'KETUA_POKJA_HUKUM',  action: 'DISTRIBUSI' },
+  { num: 14, name: 'Proses Salin SK oleh Anggota',     jabatan: 'ANGGOTA_POKJA_HUKUM', action: 'FINALIZE' },
+  { num: 15, name: 'Approval Salinan SK oleh Ketua Pokja', jabatan: 'KETUA_POKJA_HUKUM', action: 'APPROVE' },
+  { num: 16, name: 'Approval Salinan SK oleh Kabag PEHKT', jabatan: 'KABAG_PEHKT',    action: 'APPROVE' },
+  { num: 17, name: 'Arsip & Scan',                     jabatan: 'KETUA_POKJA_HUKUM',  action: 'ARCHIVE', notifyMultiple: ['KETUA_POKJA_HUKUM', 'TU_SETDITJEN'] },
 ];
 
 // Calculate 14 working days from received date
@@ -239,6 +239,7 @@ export class SkPerhutananService {
     tanggal_surat?: string;
     tanggal_terima: string;
     unit_pengusul: string;
+    jenis_sk?: string;
     perihal: string;
     tujuan_surat: string;
     konseptor?: string;
@@ -264,6 +265,7 @@ export class SkPerhutananService {
         tanggal_terima,
         tanggal_deadline,
         unit_pengusul: data.unit_pengusul,
+        jenis_sk: data.jenis_sk,
         perihal: data.perihal,
         tujuan_surat: data.tujuan_surat,
         konseptor: data.konseptor,
@@ -290,6 +292,7 @@ export class SkPerhutananService {
     nomor_surat: string;
     tanggal_surat: string;
     unit_pengusul: string;
+    jenis_sk: string;
     perihal: string;
     tujuan_surat: string;
     konseptor: string;
@@ -923,7 +926,7 @@ Status: Menunggu Perbaikan.`);
         await prisma.tr_sk_perhutanan.update({
           where: { id },
           data: {
-            status: 'IN_PROGRESS',
+            status: 'PROSES_SALINAN_SK',
             current_step: 13,
             nomor_sk: stepData.nomor_sk,
             tanggal_sk: stepData.tanggal_sk ? new Date(stepData.tanggal_sk) : null,
@@ -967,7 +970,7 @@ Status: Menunggu Distribusi Salinan SK.`);
         await prisma.tr_sk_perhutanan.update({
           where: { id },
           data: {
-            status: 'IN_PROGRESS',
+            status: 'PROSES_SALINAN_SK',
             current_step: 14,
           },
         });
@@ -1013,7 +1016,7 @@ Status: Menunggu Finalisasi.`);
         await prisma.tr_sk_perhutanan.update({
           where: { id },
           data: {
-            status: 'IN_PROGRESS',
+            status: 'PROSES_SALINAN_SK',
             current_step: 15,
           },
         });
@@ -1039,14 +1042,14 @@ Status: Menunggu Approve Finalisasi.`);
       }
     }
 
-    // Handle step 15 (Kirim ke Ketua Pokja) specific kesimpulan
+    // Handle step 15 (Approval Salinan SK oleh Ketua Pokja) specific kesimpulan
     if (sk.current_step === 15) {
       if (stepData.kesimpulan === 'APPROVE_FINALISASI') {
-        // Lanjut ke step 16 (Kabag PEHK TTD Salinan)
+        // Lanjut ke step 16 (Approval Salinan SK oleh Kabag PEHKT)
         await prisma.tr_sk_perhutanan.update({
           where: { id },
           data: {
-            status: 'IN_PROGRESS',
+            status: 'PROSES_SALINAN_SK',
             current_step: 16,
           },
         });
@@ -1071,14 +1074,14 @@ Status: Menunggu TTD Salinan & Arsip.`);
       }
     }
 
-    // Handle step 16 (Kabag PEHK TTD Salinan) specific kesimpulan
+    // Handle step 16 (Approval Salinan SK oleh Kabag PEHKT) specific kesimpulan
     if (sk.current_step === 16) {
       if (stepData.kesimpulan === 'APPROVE_FINALISASI') {
         // Lanjut ke step 17 (Arsip & Scan)
         await prisma.tr_sk_perhutanan.update({
           where: { id },
           data: {
-            status: 'IN_PROGRESS',
+            status: 'PROSES_SALINAN_SK',
             current_step: 17,
           },
         });

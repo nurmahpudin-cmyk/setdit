@@ -8,12 +8,16 @@ import {
   Form,
   Select,
   DatePicker,
+  TimePicker,
   Checkbox,
   Radio,
   message,
   Popconfirm,
   Card,
   Tag,
+  Row,
+  Col,
+  Alert,
 } from 'antd';
 import {
   PlusOutlined,
@@ -22,7 +26,11 @@ import {
   SendOutlined,
   EyeOutlined,
   SearchOutlined,
+  WhatsAppOutlined,
+  FilePdfOutlined,
 } from '@ant-design/icons';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import type { ColumnsType } from 'antd/es/table';
 import { jadwalPimpinanApi } from '../../api/jadwalPimpinan';
 import type { JadwalPimpinan, Pegawai } from '../../api/jadwalPimpinan';
@@ -31,6 +39,7 @@ import dayjs from 'dayjs';
 const { RangePicker } = DatePicker;
 
 const DIREKTUR_OPTIONS = [
+  { label: 'Sekditjen PS', value: 'Sekditjen PS' },
   { label: 'Dir. PKPS', value: 'PKPS' },
   { label: 'Dir. PKTHA', value: 'PKTHA' },
   { label: 'Dir. PUPS', value: 'PUPS' },
@@ -46,6 +55,7 @@ export default function JadwalPimpinanPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form] = Form.useForm();
   const [searchText, setSearchText] = useState('');
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(null);
   const [previewMessage, setPreviewMessage] = useState('');
   const [notificationType, setNotificationType] = useState<'weekly' | 'monthly'>('weekly');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -82,7 +92,7 @@ export default function JadwalPimpinanPage() {
     setModalVisible(true);
   };
 
-  const handleEdit = (record: JadwalPirman) => {
+  const handleEdit = (record: JadwalPimpinan) => {
     setEditingId(record.id);
     form.setFieldsValue({
       acara: record.acara,
@@ -90,6 +100,10 @@ export default function JadwalPimpinanPage() {
       sebagai: record.sebagai,
       tanggal_awal: dayjs(record.tanggal_awal),
       tanggal_akhir: dayjs(record.tanggal_akhir),
+      waktu: record.waktu ? dayjs(record.waktu, 'HH:mm') : undefined,
+      hadir_sendiri: record.hadir_sendiri,
+      model_rapat: record.model_rapat,
+      catatan: record.catatan,
       pendamping_pegawai: record.pendamping_pegawai.map((p) => p.pegawai_id),
       pendamping_direktur: record.pendamping_direktur.map((d) => d.kode_direktur),
     });
@@ -106,6 +120,108 @@ export default function JadwalPimpinanPage() {
     }
   };
 
+  const handleSendWaToPendamping = async (record: JadwalPimpinan) => {
+    if (record.pendamping_pegawai.length === 0) {
+      message.warning('Tidak ada pendamping pegawai untuk jadwal ini');
+      return;
+    }
+    try {
+      const res = await jadwalPimpinanApi.sendNotificationToPendamping(record.id);
+      const successCount = res.results.filter((r) => r.status === 'berhasil').length;
+      message.success(`${res.message} (${successCount}/${res.results.length})`);
+    } catch (error: any) {
+      message.error(error.message || 'Gagal mengirim notifikasi');
+    }
+  };
+
+  const handleExportPDF = () => {
+    if (filteredData.length === 0) {
+      message.warning('Tidak ada data untuk di-export');
+      return;
+    }
+
+    // Landscape orientation for more width
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Header
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('JADWAL PIMPINAN', pageWidth / 2, 12, { align: 'center' });
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    let headerY = 18;
+    if (dateRange && dateRange[0] && dateRange[1]) {
+      doc.text(`Periode: ${dateRange[0].format('DD/MM/YYYY')} - ${dateRange[1].format('DD/MM/YYYY')}`, pageWidth / 2, headerY, { align: 'center' });
+      headerY += 5;
+    }
+    if (searchText) {
+      doc.text(`Filter: ${searchText}`, pageWidth / 2, headerY, { align: 'center' });
+      headerY += 5;
+    }
+
+    // Table
+    const tableData = filteredData.map((item, index) => {
+      const tanggal = item.tanggal_awal === item.tanggal_akhir
+        ? dayjs(item.tanggal_awal).format('DD/MM/YYYY')
+        : `${dayjs(item.tanggal_awal).format('DD/MM/YYYY')} - ${dayjs(item.tanggal_akhir).format('DD/MM/YYYY')}`;
+      const pendampingPegawai = item.pendamping_pegawai.map(p => p.pegawai?.nama_lengkap || '-').join(', ');
+      const pendampingDir = item.pendamping_direktur.map(d => d.nama_direktur).join(', ');
+
+      return [
+        (index + 1).toString(),
+        tanggal,
+        item.acara,
+        item.lokasi,
+        item.sebagai,
+        item.waktu || '-',
+        item.model_rapat,
+        item.hadir_sendiri ? 'Hadir' : 'Diwakilkan',
+        item.catatan || '-',
+        pendampingPegawai || '-',
+        pendampingDir || '-',
+      ];
+    });
+
+    autoTable(doc, {
+      head: [['No', 'Tanggal', 'Acara', 'Lokasi', 'Sebagai', 'Waktu', 'Model', 'Kehadiran', 'Catatan', 'Pendamping Pegawai', 'Pendamping Direktur']],
+      body: tableData,
+      startY: headerY,
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [41, 128, 185], fontSize: 7 },
+      columnStyles: {
+        0: { cellWidth: 10 },
+        1: { cellWidth: 25 },
+        2: { cellWidth: 45 },
+        3: { cellWidth: 35 },
+        4: { cellWidth: 20 },
+        5: { cellWidth: 15 },
+        6: { cellWidth: 18 },
+        7: { cellWidth: 18 },
+        8: { cellWidth: 25 },
+        9: { cellWidth: 35 },
+        10: { cellWidth: 35 },
+      },
+      didDrawPage: function (data) {
+        // Footer on each page
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        const pageHeight = doc.internal.pageSize.getHeight();
+        doc.text(`Dicetak: ${dayjs().format('DD/MM/YYYY HH:mm')}`, 10, pageHeight - 5);
+        doc.text(`Halaman ${data.pageNumber} dari ${doc.getNumberOfPages()}`, pageWidth - 10, pageHeight - 5, { align: 'right' });
+      },
+    });
+
+    doc.save(`jadwal-pimpinan-${dayjs().format('YYYY-MM-DD')}.pdf`);
+    message.success('PDF berhasil di-export');
+  };
+
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
@@ -115,6 +231,10 @@ export default function JadwalPimpinanPage() {
         sebagai: values.sebagai,
         tanggal_awal: values.tanggal_awal.toISOString(),
         tanggal_akhir: values.tanggal_akhir.toISOString(),
+        waktu: values.waktu?.format('HH:mm'),
+        hadir_sendiri: values.hadir_sendiri ?? true,
+        model_rapat: values.model_rapat || 'FAKTUAL',
+        catatan: values.catatan,
         pendamping_pegawai: values.pendamping_pegawai?.map((pegawaiId: number) => ({
           pegawai_id: pegawaiId,
         })) || [],
@@ -167,30 +287,31 @@ export default function JadwalPimpinanPage() {
     {
       title: 'No',
       key: 'no',
-      width: 60,
+      width: 50,
       render: (_, __, index) => index + 1,
     },
     {
       title: 'Acara',
       dataIndex: 'acara',
       key: 'acara',
-      ellipsis: true,
+      width: 250,
     },
     {
       title: 'Lokasi',
       dataIndex: 'lokasi',
       key: 'lokasi',
-      ellipsis: true,
+      width: 200,
     },
     {
       title: 'Sebagai',
       dataIndex: 'sebagai',
       key: 'sebagai',
-      ellipsis: true,
+      width: 120,
     },
     {
       title: 'Tanggal',
       key: 'tanggal',
+      width: 150,
       render: (_, record) => (
         <span>
           {dayjs(record.tanggal_awal).format('DD/MM/YYYY')}
@@ -200,32 +321,82 @@ export default function JadwalPimpinanPage() {
       ),
     },
     {
-      title: 'Pendamping',
-      key: 'pendamping',
+      title: 'Waktu',
+      dataIndex: 'waktu',
+      key: 'waktu',
+      width: 80,
+      render: (waktu) => waktu || '-',
+    },
+    {
+      title: 'Model',
+      dataIndex: 'model_rapat',
+      key: 'model_rapat',
+      width: 100,
+      render: (val) => <Tag color={val === 'FAKTUAL' ? 'blue' : val === 'HYBRID' ? 'green' : 'purple'}>{val}</Tag>,
+    },
+    {
+      title: 'Kehadiran',
+      key: 'kehadiran',
+      width: 120,
       render: (_, record) => (
-        <div>
-          {record.pendamping_pegawai.slice(0, 2).map((p) => (
-            <Tag key={p.id} color="blue">{p.pegawai?.nama_lengkap || '-'}</Tag>
-          ))}
-          {record.pendamping_pegawai.length > 2 && (
-            <Tag color="default">+{record.pendamping_pegawai.length - 2}</Tag>
+        <Tag color={record.hadir_sendiri ? 'success' : 'warning'}>
+          {record.hadir_sendiri ? 'Hadir Langsung' : 'Diwakilkan'}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Pendamping Pegawai',
+      key: 'pendamping_pegawai',
+      width: 200,
+      render: (_, record) => (
+        <div style={{ wordWrap: 'break-word', wordBreak: 'break-word' }}>
+          {record.pendamping_pegawai.length === 0 ? (
+            <span style={{ color: '#999' }}>-</span>
+          ) : (
+            record.pendamping_pegawai.map((p) => (
+              <Tag key={p.id} color="blue" style={{ marginBottom: 2 }}>{p.pegawai?.nama_lengkap || '-'}</Tag>
+            ))
           )}
-          {record.pendamping_direktur.map((d) => (
-            <Tag key={d.id} color="green">{d.nama_direktur}</Tag>
-          ))}
+        </div>
+      ),
+    },
+    {
+      title: 'Pendamping Direktur',
+      key: 'pendamping_direktur',
+      width: 180,
+      render: (_, record) => (
+        <div style={{ wordWrap: 'break-word', wordBreak: 'break-word' }}>
+          {record.pendamping_direktur.length === 0 ? (
+            <span style={{ color: '#999' }}>-</span>
+          ) : (
+            record.pendamping_direktur.map((d) => (
+              <Tag key={d.id} color="green" style={{ marginBottom: 2 }}>{d.nama_direktur}</Tag>
+            ))
+          )}
         </div>
       ),
     },
     {
       title: 'Aksi',
       key: 'action',
-      width: 120,
+      width: 150,
+      fixed: 'right',
       render: (_, record) => (
-        <Space>
+        <Space size={4}>
           <Button
+            size="small"
+            type="link"
+            icon={<WhatsAppOutlined style={{ color: '#25D366' }} />}
+            onClick={() => handleSendWaToPendamping(record)}
+            style={{ padding: '4px 8px' }}
+            title="Kirim WA ke Pendamping"
+          />
+          <Button
+            size="small"
             type="link"
             icon={<EditOutlined />}
             onClick={() => handleEdit(record)}
+            style={{ padding: '4px 8px' }}
           />
           <Popconfirm
             title="Yakin hapus jadwal ini?"
@@ -233,7 +404,13 @@ export default function JadwalPimpinanPage() {
             okText="Ya"
             cancelText="Batal"
           >
-            <Button type="link" danger icon={<DeleteOutlined />} />
+            <Button
+              size="small"
+              type="link"
+              danger
+              icon={<DeleteOutlined />}
+              style={{ padding: '4px 8px' }}
+            />
           </Popconfirm>
         </Space>
       ),
@@ -241,11 +418,36 @@ export default function JadwalPimpinanPage() {
   ];
 
   const filteredData = searchText
-    ? data.filter(
-        (item) =>
-          item.acara.toLowerCase().includes(searchText.toLowerCase()) ||
-          item.lokasi.toLowerCase().includes(searchText.toLowerCase())
-      )
+    ? data.filter((item) => {
+        const keyword = searchText.toLowerCase();
+        const searchableText = [
+          item.acara,
+          item.lokasi,
+          item.sebagai,
+          item.model_rapat,
+          item.hadir_sendiri ? 'hadir langsung' : 'diwakilkan',
+          item.waktu || '',
+          dayjs(item.tanggal_awal).format('DD/MM/YYYY'),
+          dayjs(item.tanggal_akhir).format('DD/MM/YYYY'),
+          ...item.pendamping_pegawai.map((p) => p.pegawai?.nama_lengkap || ''),
+          ...item.pendamping_direktur.map((d) => d.nama_direktur),
+        ].join(' ').toLowerCase();
+        const matchText = searchableText.includes(keyword);
+
+        // Filter tanggal
+        if (dateRange && dateRange[0] && dateRange[1]) {
+          const itemStart = dayjs(item.tanggal_awal);
+          const itemEnd = dayjs(item.tanggal_akhir);
+          const filterStart = dateRange[0].startOf('day');
+          const filterEnd = dateRange[1].endOf('day');
+
+          // Item match jika overlap dengan range filter
+          const matchDate = itemStart.isBefore(filterEnd) && itemEnd.isAfter(filterStart.subtract(1, 'day'));
+          return matchText && matchDate;
+        }
+
+        return matchText;
+      })
     : data;
 
   return (
@@ -253,9 +455,12 @@ export default function JadwalPimpinanPage() {
       <Card
         title="Jadwal Pimpinan"
         extra={
-          <Space>
+          <Space wrap>
             <Button icon={<SendOutlined />} onClick={() => setNotificationModalVisible(true)}>
               Kirim Notifikasi WA
+            </Button>
+            <Button icon={<FilePdfOutlined />} onClick={handleExportPDF}>
+              Export PDF
             </Button>
             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
               Tambah Jadwal
@@ -263,21 +468,34 @@ export default function JadwalPimpinanPage() {
           </Space>
         }
       >
-        <div style={{ marginBottom: 16 }}>
-          <Input
-            placeholder="Cari acara atau lokasi..."
-            prefix={<SearchOutlined />}
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            style={{ width: 300 }}
-          />
-        </div>
+        <Row gutter={[8, 8]} style={{ marginBottom: 16 }}>
+          <Col xs={24} sm={12} md={8}>
+            <Input
+              placeholder="Cari..."
+              prefix={<SearchOutlined />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              allowClear
+            />
+          </Col>
+          <Col xs={24} sm={12} md={10}>
+            <RangePicker
+              style={{ width: '100%' }}
+              placeholder={['Tanggal Mulai', 'Tanggal Selesai']}
+              value={dateRange}
+              onChange={(dates) => setDateRange(dates as [dayjs.Dayjs | null, dayjs.Dayjs | null] | null)}
+              format="DD/MM/YYYY"
+              allowClear
+            />
+          </Col>
+        </Row>
 
         <Table
           columns={columns}
           dataSource={filteredData}
           rowKey="id"
           loading={loading}
+          scroll={{ x: 600 }}
           pagination={{
             pageSize: 10,
             showSizeChanger: true,
@@ -302,7 +520,7 @@ export default function JadwalPimpinanPage() {
             label="Acara"
             rules={[{ required: true, message: 'Harus diisi' }]}
           >
-            <Input placeholder="Nama acara" />
+            <Input.TextArea placeholder="Nama acara" autoSize={{ minRows: 2, maxRows: 4 }} />
           </Form.Item>
 
           <Form.Item
@@ -310,7 +528,7 @@ export default function JadwalPimpinanPage() {
             label="Lokasi"
             rules={[{ required: true, message: 'Harus diisi' }]}
           >
-            <Input placeholder="Tempat pelaksanaan" />
+            <Input.TextArea placeholder="Tempat pelaksanaan" autoSize={{ minRows: 2, maxRows: 3 }} />
           </Form.Item>
 
           <Form.Item
@@ -321,24 +539,64 @@ export default function JadwalPimpinanPage() {
             <Input placeholder="Contoh: Pembicara, Tamu Undangan" />
           </Form.Item>
 
-          <Space style={{ width: '100%' }}>
-            <Form.Item
-              name="tanggal_awal"
-              label="Tanggal Awal"
-              rules={[{ required: true, message: 'Harus diisi' }]}
-              style={{ width: 200 }}
-            >
-              <DatePicker format="YYYY-MM-DD" />
-            </Form.Item>
-            <Form.Item
-              name="tanggal_akhir"
-              label="Tanggal Akhir"
-              rules={[{ required: true, message: 'Harus diisi' }]}
-              style={{ width: 200 }}
-            >
-              <DatePicker format="YYYY-MM-DD" />
-            </Form.Item>
-          </Space>
+          <Row gutter={[16, 0]}>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="tanggal_awal"
+                label="Tanggal Awal"
+                rules={[{ required: true, message: 'Harus diisi' }]}
+              >
+                <DatePicker format="YYYY-MM-DD" style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="tanggal_akhir"
+                label="Tanggal Akhir"
+                rules={[{ required: true, message: 'Harus diisi' }]}
+              >
+                <DatePicker format="YYYY-MM-DD" style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={[16, 0]}>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="waktu"
+                label="Waktu"
+              >
+                <TimePicker format="HH:mm" style={{ width: '100%' }} placeholder="Jam pelaksanaan" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="model_rapat"
+                label="Model Rapat"
+                rules={[{ required: true, message: 'Harus dipilih' }]}
+              >
+                <Select
+                  placeholder="Pilih model"
+                  options={[
+                    { label: 'Faktual', value: 'FAKTUAL' },
+                    { label: 'Hybrid', value: 'HYBRID' },
+                    { label: 'Virtual', value: 'VIRTUAL' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item
+            name="hadir_sendiri"
+            label="Kehadiran"
+            initialValue={true}
+          >
+            <Radio.Group>
+              <Radio value={true}>Hadir Langsung</Radio>
+              <Radio value={false}>Diwakilkan</Radio>
+            </Radio.Group>
+          </Form.Item>
 
           <Form.Item name="pendamping_pegawai" label="Pendamping Pegawai">
             <Select
@@ -351,6 +609,10 @@ export default function JadwalPimpinanPage() {
 
           <Form.Item name="pendamping_direktur" label="Pendamping Direktur">
             <Checkbox.Group options={DIREKTUR_OPTIONS} />
+          </Form.Item>
+
+          <Form.Item name="catatan" label="Catatan">
+            <Input.TextArea placeholder="Contoh: Dresscode menggunakan batik Korpri" autoSize={{ minRows: 2, maxRows: 4 }} />
           </Form.Item>
         </Form>
       </Modal>

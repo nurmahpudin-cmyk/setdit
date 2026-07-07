@@ -368,17 +368,21 @@ model mst_pegawai {
 // ============================================
 
 model tr_jadwal_pimpinan {
-  id            Int       @id @default(autoincrement())
-  acara         String
-  lokasi        String
-  sebagai       String
-  tanggal_awal  DateTime
-  tanggal_akhir DateTime
-  is_notified   Boolean   @default(false)
-  notified_at   DateTime?
-  created_by    Int?
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
+  id                   Int          @id @default(autoincrement())
+  acara                String
+  lokasi               String
+  sebagai              String
+  tanggal_awal         DateTime
+  tanggal_akhir        DateTime
+  waktu                String?      // Format HH:mm
+  hadir_sendiri        Boolean      @default(true)
+  model_rapat          model_rapat  @default(FAKTUAL)
+  catatan              String?
+  is_notified          Boolean      @default(false)
+  notified_at          DateTime?
+  created_by           Int?
+  created_at           DateTime     @default(now())
+  updated_at           DateTime     @updatedAt
 
   creator             mst_users?                      @relation(fields: [created_by], references: [id])
   pendamping_pegawai  tr_jadwal_pendamping_pegawai[]
@@ -439,6 +443,7 @@ enum sk_status {
   WAITING_REVISION
   APPROVED
   SIGNED
+  PROSES_SALINAN_SK
   COMPLETED
 }
 
@@ -446,6 +451,12 @@ enum notif_status {
   PENDING
   SENT
   FAILED
+}
+
+enum model_rapat {
+  FAKTUAL
+  HYBRID
+  VIRTUAL
 }
 
 // SK Document
@@ -457,6 +468,7 @@ model tr_sk_perhutanan {
   tanggal_deadline   DateTime
   deadline_paused_at DateTime? // Tanggal deadline dihentikan hitungannya
   unit_pengusul      String // PKPS / PKTHA
+  jenis_sk          String? // SK PS / SK Penataan Areal Kerja (PAK)
   perihal            String
   tujuan_surat       String
   konseptor_id       Int?

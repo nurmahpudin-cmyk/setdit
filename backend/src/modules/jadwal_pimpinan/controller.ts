@@ -11,6 +11,10 @@ const createSchema = z.object({
   sebagai: z.string().min(1, 'Sebagai apa harus diisi'),
   tanggal_awal: z.string().transform((s) => new Date(s)),
   tanggal_akhir: z.string().transform((s) => new Date(s)),
+  waktu: z.string().optional(),
+  hadir_sendiri: z.boolean().default(true),
+  model_rapat: z.enum(['FAKTUAL', 'HYBRID', 'VIRTUAL']).default('FAKTUAL'),
+  catatan: z.string().optional(),
   pendamping_pegawai: z
     .array(
       z.object({
@@ -34,6 +38,10 @@ const updateSchema = z.object({
   sebagai: z.string().min(1).optional(),
   tanggal_awal: z.string().transform((s) => new Date(s)).optional(),
   tanggal_akhir: z.string().transform((s) => new Date(s)).optional(),
+  waktu: z.string().optional(),
+  hadir_sendiri: z.boolean().optional(),
+  model_rapat: z.enum(['FAKTUAL', 'HYBRID', 'VIRTUAL']).optional(),
+  catatan: z.string().optional(),
   pendamping_pegawai: z
     .array(
       z.object({
@@ -148,6 +156,23 @@ export class JadwalPimpinanController {
     }
   }
 
+  async sendNotificationToPendamping(req: Request, res: Response) {
+    try {
+      const authReq = req as AuthRequest;
+      const jadwalId = parseInt(req.params.id);
+
+      if (isNaN(jadwalId)) {
+        apiError(res, 'ID jadwal tidak valid', 400);
+        return;
+      }
+
+      const result = await jadwalPimpinanService.sendNotificationToPendamping(jadwalId, authReq.user!.id);
+      apiResponse(res, result);
+    } catch (error: any) {
+      apiError(res, error.message, 400);
+    }
+  }
+
   async sendNotification(req: Request, res: Response) {
     try {
       const authReq = req as AuthRequest;
@@ -184,7 +209,13 @@ export class JadwalPimpinanController {
           message += ` - ${formatTgl(tglAkhir)}`;
         }
         message += `\n`;
-        message += `${j.acara} (${j.lokasi})\n`;
+        if (j.waktu) {
+          message += `Waktu  : ${j.waktu}\n`;
+        }
+        message += `${j.acara}\n`;
+        message += `${j.lokasi}\n`;
+        message += `Model  : ${j.model_rapat}\n`;
+        message += `${j.hadir_sendiri ? 'Hadir Langsung' : 'Diwakilkan'}\n`;
 
         if (j.pendamping_pegawai.length > 0) {
           message += `Pendamping:\n`;
@@ -263,7 +294,13 @@ export class JadwalPimpinanController {
           preview += ` - ${formatTgl(tglAkhir)}`;
         }
         preview += `\n`;
-        preview += `${j.acara} (${j.lokasi})\n`;
+        if (j.waktu) {
+          preview += `Waktu  : ${j.waktu}\n`;
+        }
+        preview += `${j.acara}\n`;
+        preview += `${j.lokasi}\n`;
+        preview += `Model  : ${j.model_rapat}\n`;
+        preview += `${j.hadir_sendiri ? 'Hadir Langsung' : 'Diwakilkan'}\n`;
 
         if (j.pendamping_pegawai.length > 0) {
           preview += `Pendamping:\n`;

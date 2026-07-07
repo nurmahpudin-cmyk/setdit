@@ -1,0 +1,22 @@
+User default sudah dibuat untuk setiap jabatan:
+
+Username	Jabatan	Password
+admin_tu	TU_SETDITJEN	rahasia123
+sekditjen_ps	SEKDITJEN_PS	rahasia123
+kabag_pehkt	KABAG_PEHKT	rahasia123
+ketua_pokja	KETUA_POKJA_HUKUM	rahasia123
+dirjen_ps	DIRJEN_PS	rahasia123
+petugas_arsip	PETUGAS_ARSIP	rahasia123
+anggota_pokja1	ANGGOTA_POKJA_HUKUM	rahasia123
+anggota_pokja2	ANGGOTA_POKJA_HUKUM	rahasia123
+anggota_pokja3	ANGGOTA_POKJA_HUKUM	rahasia123
+anggota_pokja4	ANGGOTA_POKJA_HUKUM	rahasia123
+
+
+-- Insert user
+INSERT INTO mst_users (fullname, username, email, phone, password, status, is_verified, created_at, updated_at)
+VALUES ('Kasubbag TU', 'kasubbag_tu', 'kasubbag_tu@setdit.id', '081234567890', '$2b$10$...', 'ACTIVE', true, NOW(), NOW());
+
+-- Insert jabatan assignment (ganti user_id dengan id yang baru dibuat)
+INSERT INTO tr_jabatan_assignment (user_id, jabatan_code, is_active, created_at)
+VALUES (1, 'KASUBBAG_TU', true, NOW());

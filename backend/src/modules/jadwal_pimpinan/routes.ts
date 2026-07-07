@@ -253,6 +253,30 @@ router.delete(
 
 /**
  * @swagger
+ * /api/jadwal-pimpinan/{id}/send-notification:
+ *   post:
+ *     tags: [Jadwal Pimpinan]
+ *     summary: Send notification to pendamping pegawai
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Notification sent
+ */
+router.post(
+  '/:id/send-notification',
+  requireAnyPermission('jadwal.manage', 'admin.manage'),
+  jadwalPimpinanController.sendNotificationToPendamping.bind(jadwalPimpinanController)
+);
+
+/**
+ * @swagger
  * /api/jadwal-pimpinan/send-notification:
  *   post:
  *     tags: [Jadwal Pimpinan]
@@ -298,6 +322,31 @@ router.post(
     try {
       await cronService.sendWeeklyJadwalNotification();
       res.json({ success: true, message: 'Weekly notification job triggered' });
+    } catch (error: any) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/jadwal-pimpinan/cron/send-h-minus-one:
+ *   post:
+ *     tags: [Jadwal Pimpinan]
+ *     summary: Trigger H-1 jadwal notification cron job manually
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Cron job triggered
+ */
+router.post(
+  '/cron/send-h-minus-one',
+  requireAnyPermission('jadwal.manage', 'admin.manage'),
+  async (req, res) => {
+    try {
+      await cronService.sendHMinusOneNotification();
+      res.json({ success: true, message: 'H-1 notification job triggered' });
     } catch (error: any) {
       res.status(500).json({ success: false, message: error.message });
     }

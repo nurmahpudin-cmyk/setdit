@@ -25,6 +25,10 @@ export interface JadwalPimpinan {
   sebagai: string;
   tanggal_awal: string;
   tanggal_akhir: string;
+  waktu?: string;
+  hadir_sendiri: boolean;
+  model_rapat: 'FAKTUAL' | 'HYBRID' | 'VIRTUAL';
+  catatan?: string;
   is_notified: boolean;
   notified_at: string | null;
   created_by: number | null;
@@ -49,6 +53,10 @@ export interface CreateJadwalPayload {
   sebagai: string;
   tanggal_awal: string;
   tanggal_akhir: string;
+  waktu?: string;
+  hadir_sendiri: boolean;
+  model_rapat: 'FAKTUAL' | 'HYBRID' | 'VIRTUAL';
+  catatan?: string;
   pendamping_pegawai?: { pegawai_id: number }[];
   pendamping_direktur?: { kode_direktur: string; nama_direktur: string }[];
 }
@@ -99,6 +107,11 @@ export const jadwalPimpinanApi = {
 
   delete: async (id: number): Promise<void> => {
     await api.delete(`/jadwal-pimpinan/${id}`);
+  },
+
+  sendNotificationToPendamping: async (id: number): Promise<{ message: string; results: { nama: string; phone: string; status: string }[] }> => {
+    const response = await api.post(`/jadwal-pimpinan/${id}/send-notification`);
+    return response.data.data;
   },
 
   getUpcoming: async (type: 'weekly' | 'monthly'): Promise<JadwalPirman[]> => {

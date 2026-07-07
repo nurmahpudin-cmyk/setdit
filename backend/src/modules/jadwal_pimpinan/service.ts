@@ -74,6 +74,10 @@ export class JadwalPimpinanService {
     sebagai: string;
     tanggal_awal: Date;
     tanggal_akhir: Date;
+    waktu?: string;
+    hadir_sendiri?: boolean;
+    model_rapat?: 'FAKTUAL' | 'HYBRID' | 'VIRTUAL';
+    catatan?: string;
     created_by: number;
     pendamping_pegawai?: { pegawai_id: number }[];
     pendamping_direktur?: { kode_direktur: string; nama_direktur: string }[];
@@ -85,6 +89,10 @@ export class JadwalPimpinanService {
         sebagai: data.sebagai,
         tanggal_awal: data.tanggal_awal,
         tanggal_akhir: data.tanggal_akhir,
+        waktu: data.waktu,
+        hadir_sendiri: data.hadir_sendiri ?? true,
+        model_rapat: data.model_rapat ?? 'FAKTUAL',
+        catatan: data.catatan,
         created_by: data.created_by,
         pendamping_pegawai: data.pendamping_pegawai?.length
           ? {
@@ -122,6 +130,10 @@ export class JadwalPimpinanService {
       sebagai?: string;
       tanggal_awal?: Date;
       tanggal_akhir?: Date;
+      waktu?: string;
+      hadir_sendiri?: boolean;
+      model_rapat?: 'FAKTUAL' | 'HYBRID' | 'VIRTUAL';
+      catatan?: string;
       pendamping_pegawai?: { pegawai_id: number }[];
       pendamping_direktur?: { kode_direktur: string; nama_direktur: string }[];
     }
@@ -143,6 +155,10 @@ export class JadwalPimpinanService {
         sebagai: data.sebagai,
         tanggal_awal: data.tanggal_awal,
         tanggal_akhir: data.tanggal_akhir,
+        waktu: data.waktu,
+        hadir_sendiri: data.hadir_sendiri,
+        model_rapat: data.model_rapat,
+        catatan: data.catatan,
         pendamping_pegawai: data.pendamping_pegawai?.length
           ? {
               create: data.pendamping_pegawai.map((p) => ({
@@ -222,6 +238,112 @@ export class JadwalPimpinanService {
       orderBy: { nama_lengkap: 'asc' },
     });
     return pegawai;
+  }
+
+  async sendNotificationToPendamping(jadwalId: number, userId: number) {
+    const jadwal = await prisma.tr_jadwal_pimpinan.findUnique({
+      where: { id: jadwalId },
+      include: {
+        creator: { select: { id: true, fullname: true } },
+        pendamping_pegawai: {
+          include: { pegawai: true },
+        },
+      },
+    });
+
+    if (!jadwal) {
+      throw new Error('Jadwal tidak ditemukan');
+    }
+
+    if (jadwal.pendamping_pegawai.length === 0) {
+      throw new Error('Tidak ada pendamping pegawai untuk jadwal ini');
+    }
+
+    const { whatsappService } = await import('../whatsapp/service.js');
+
+    const session = await prisma.wa_sessions.findFirst({ where: { is_active: true } });
+    if (!session) {
+      throw new Error('Tidak ada sesi WhatsApp yang aktif');
+    }
+
+    const hariNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const bulanNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+    const formatTglFull = (d: Date) => {
+      const hari = hariNames[d.getDay()];
+      const tanggal = d.getDate();
+      const bulan = bulanNames[d.getMonth()];
+      const tahun = d.getFullYear();
+      return `${hari}, ${tanggal} ${bulan} ${tahun}`;
+    };
+
+    const formatTglShort = (d: Date) => {
+      const hari = hariNames[d.getDay()];
+      return hari;
+    };
+
+    const results: { nama: string; phone: string; status: string }[] = [];
+
+    for (const p of jadwal.pendamping_pegawai) {
+      const phone = p.pegawai?.nomor_wa;
+      const namaLengkap = p.pegawai?.nama_lengkap || '-';
+      const namaPanggilan = p.pegawai?.nama_panggilan || namaLengkap;
+
+      if (!phone) {
+        results.push({
+          nama: namaLengkap,
+          phone: '-',
+          status: 'gagal - nomor WA tidak ada',
+        });
+        continue;
+      }
+
+      const tglAwal = new Date(jadwal.tanggal_awal);
+      const tglAkhir = new Date(jadwal.tanggal_akhir);
+      const isSameDay = tglAwal.toDateString() === tglAkhir.toDateString();
+
+      let tanggalText = formatTglFull(tglAwal);
+      if (!isSameDay) {
+        tanggalText = `${formatTglShort(tglAwal)} - ${formatTglShort(tglAkhir)}, ${tglAwal.getDate()} - ${tglAkhir.getDate()} ${bulanNames[tglAwal.getMonth()]} ${tglAwal.getFullYear()}`;
+      }
+
+      let message = `Yth. ${namaPanggilan},\n\n`;
+      message += `Diharapkan kehadirannya pada :\n\n`;
+      message += `📅 Tanggal : ${tanggalText}\n`;
+      if (jadwal.waktu) {
+        message += `🕐 Waktu   : ${jadwal.waktu}\n`;
+      }
+      message += `📋 Acara  : ${jadwal.acara}\n`;
+      message += `📍 Lokasi : ${jadwal.lokasi}\n`;
+      message += `👤 Sebagai: ${jadwal.sebagai}\n`;
+      message += `📱 Metode  : ${jadwal.model_rapat}\n`;
+      if (jadwal.catatan) {
+        message += `📝 Catatan : ${jadwal.catatan}\n`;
+      }
+      message += `\nMengingat pentingnya acara ini, dimohon kehadiran tepat waktu.\n\n`;
+      message += `Terima kasih.\n\n`;
+      message += `- Scheduler SETDIT`;
+
+      try {
+        await whatsappService.sendMessage(session.id, phone, message, userId);
+        results.push({
+          nama: namaLengkap,
+          phone,
+          status: 'berhasil',
+        });
+      } catch (error: any) {
+        results.push({
+          nama: namaLengkap,
+          phone,
+          status: `gagal - ${error.message}`,
+        });
+      }
+    }
+
+    return {
+      message: `Notifikasi dikirim ke ${results.filter((r) => r.status === 'berhasil').length} pendamping`,
+      results,
+    };
   }
 }
 

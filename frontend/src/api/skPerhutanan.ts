@@ -8,6 +8,7 @@ export interface SKPerhutanan {
   tanggal_terima: string;
   tanggal_deadline: string;
   unit_pengusul: 'PKPS' | 'PKTHA';
+  jenis_sk?: 'SK_PS' | 'SK_PAK';
   perihal: string;
   tujuan_surat: string;
   konseptor?: string;
@@ -24,7 +25,7 @@ export interface SKPerhutanan {
   kelompok_ps?: string;
   luas?: number;
   jml_kk?: number;
-  status: 'DRAFT' | 'IN_PROGRESS' | 'WAITING_REVISION' | 'APPROVED' | 'SIGNED' | 'COMPLETED';
+  status: 'DRAFT' | 'IN_PROGRESS' | 'WAITING_REVISION' | 'APPROVED' | 'SIGNED' | 'PROSES_SALINAN_SK' | 'COMPLETED';
   current_step: number;
   created_by?: number;
   created_at: string;

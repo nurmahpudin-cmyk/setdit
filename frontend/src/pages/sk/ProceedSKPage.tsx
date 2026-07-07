@@ -19,6 +19,7 @@ import {
   Grid,
   DatePicker,
 } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import {
   SearchOutlined,
   FileTextOutlined,
@@ -33,22 +34,22 @@ const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
 
 const WORKFLOW_STEPS = [
-  { num: 1, name: 'Input Surat', color: '#1890ff' },
-  { num: 2, name: 'Setditjen PS', color: '#1890ff' },
-  { num: 3, name: 'Kabag PEHK', color: '#1890ff' },
-  { num: 4, name: 'Distribusi Ke Anggota', color: '#1890ff' },
+  { num: 1, name: 'Input oleh Admin TU', color: '#1890ff' },
+  { num: 2, name: 'Disposisi Setditjen PS', color: '#1890ff' },
+  { num: 3, name: 'Disposisi Kabag PEHKT', color: '#1890ff' },
+  { num: 4, name: 'Distribusi Ke Anggota oleh Ketua Pokja', color: '#1890ff' },
   { num: 5, name: 'Telaah Anggota', color: '#1890ff' },
-  { num: 6, name: 'Approve Ketua', color: '#1890ff' },
-  { num: 7, name: 'Kabag PEHK', color: '#1890ff' },
-  { num: 8, name: 'Kasubbag TU', color: '#1890ff' },
-  { num: 9, name: 'TTD Setditjen', color: '#1890ff' },
-  { num: 10, name: 'Admin TU Penomoran ND', color: '#1890ff' },
-  { num: 11, name: 'Dirjen PS', color: '#1890ff' },
-  { num: 12, name: 'Admin TU Penomoran SK', color: '#1890ff' },
-  { num: 13, name: 'Distribusi SK', color: '#1890ff' },
-  { num: 14, name: 'Finalisasi Anggota', color: '#1890ff' },
-  { num: 15, name: 'Approve Finalisasi', color: '#1890ff' },
-  { num: 16, name: 'Kabag PEHK TTD Salinan', color: '#1890ff' },
+  { num: 6, name: 'Approval Ketua Pokja', color: '#1890ff' },
+  { num: 7, name: 'Approval Kabag PEHKT', color: '#1890ff' },
+  { num: 8, name: 'Approval Kasubbag TU', color: '#1890ff' },
+  { num: 9, name: 'Approval Setditjen', color: '#1890ff' },
+  { num: 10, name: 'Penomoran ND Pengantar oleh Admin TU', color: '#1890ff' },
+  { num: 11, name: 'Approval Dirjen PS', color: '#1890ff' },
+  { num: 12, name: 'Penomoran SK oleh Admin TU', color: '#1890ff' },
+  { num: 13, name: 'Distribusi SK ke Anggota', color: '#1890ff' },
+  { num: 14, name: 'Proses Salin SK oleh Anggota', color: '#1890ff' },
+  { num: 15, name: 'Approval Salinan SK oleh Ketua Pokja', color: '#1890ff' },
+  { num: 16, name: 'Approval Salinan SK oleh Kabag PEHKT', color: '#1890ff' },
   { num: 17, name: 'Arsip & Scan', color: '#52c41a' },
 ];
 
@@ -58,16 +59,23 @@ const STATUS_COLORS: Record<string, string> = {
   WAITING_REVISION: 'warning',
   APPROVED: 'success',
   SIGNED: 'blue',
-  COMPLETED: 'green',
+  PROSES_SALINAN_SK: 'processing',
+  COMPLETED: 'success',
 };
 
-const STATUS_TEXT: Record<string, string> = {
-  DRAFT: 'Draft',
-  IN_PROGRESS: 'Dalam Proses',
-  WAITING_REVISION: 'Menunggu Revisi',
-  APPROVED: 'Disetujui',
-  SIGNED: 'Ditandatangani',
-  COMPLETED: 'Selesai',
+const getStatusText = (status: string, currentStep?: number) => {
+  if (status === 'COMPLETED') return 'Selesai';
+  if (status === 'APPROVED' && currentStep === 11) return 'Disetujui';
+  if (status === 'APPROVED') return 'Disetujui';
+  if (status === 'PROSES_SALINAN_SK') return 'Proses Salinan SK';
+
+  switch (status) {
+    case 'DRAFT': return 'Draft';
+    case 'IN_PROGRESS': return 'Dalam Proses';
+    case 'WAITING_REVISION': return 'Menunggu Revisi';
+    case 'SIGNED': return 'Ditandatangani';
+    default: return status;
+  }
 };
 
 export default function ProceedSKPage() {
@@ -185,7 +193,7 @@ export default function ProceedSKPage() {
     if (!selectedSK?.stages) return [];
 
     return WORKFLOW_STEPS.map((step) => {
-      const stage = selectedSK.stages.find((s) => s.step_num === step.num);
+      const stage = selectedSK.stages?.find((s) => s.step_num === step.num);
       const isCompleted = stage?.is_completed;
       const isCurrent = selectedSK.current_step === step.num;
 
@@ -207,7 +215,7 @@ export default function ProceedSKPage() {
     );
   };
 
-  const columns = [
+  const columns: ColumnsType<SKPerhutanan> = [
     {
       title: 'No',
       key: 'no',
@@ -219,6 +227,7 @@ export default function ProceedSKPage() {
       dataIndex: 'nomor_surat',
       key: 'nomor_surat',
       width: screens.xs ? 100 : 150,
+      responsive: ['md'],
       render: (val: string) => val || '-',
     },
     {
@@ -232,21 +241,23 @@ export default function ProceedSKPage() {
       dataIndex: 'unit_pengusul',
       key: 'unit_pengusul',
       width: screens.xs ? 60 : 80,
+      responsive: ['sm'],
       render: (val: string) => <Tag color="blue">{val}</Tag>,
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: screens.xs ? 100 : 130,
-      render: (status: string) => (
-        <Tag color={STATUS_COLORS[status]}>{STATUS_TEXT[status] || status}</Tag>
+      width: screens.xs ? 100 : 150,
+      render: (status: string, record: SKPerhutanan) => (
+        <Tag color={STATUS_COLORS[status]}>{getStatusText(status, record.current_step)}</Tag>
       ),
     },
     {
       title: 'Tahap',
       key: 'tahap',
       width: screens.xs ? 100 : 150,
+      responsive: ['md'],
       render: (_: any, record: SKPerhutanan) => {
         const step = WORKFLOW_STEPS.find((s) => s.num === record.current_step);
         return <Text>{step?.name || `Step ${record.current_step}`}</Text>;
@@ -257,6 +268,7 @@ export default function ProceedSKPage() {
       dataIndex: 'tanggal_deadline',
       key: 'tanggal_deadline',
       width: screens.xs ? 80 : 100,
+      responsive: ['md'],
       render: (date: string) => dayjs(date).format('DD/MM/YY'),
     },
     {
@@ -280,8 +292,8 @@ export default function ProceedSKPage() {
       </Title>
 
       <Card style={{ marginBottom: 24, borderRadius: 12 }}>
-        <Row gutter={16} align="middle">
-          <Col flex="200px">
+        <Row gutter={[16, 16]}>
+          <Col xs={24} sm={8}>
             <Select
               value={searchType}
               onChange={(val) => {
@@ -305,12 +317,12 @@ export default function ProceedSKPage() {
               ]}
             />
           </Col>
-          <Col flex="auto">
+          <Col xs={24} sm={isDateSearch || isYearSearch ? 16 : 12}>
             {isDateSearch ? (
               <DatePicker.RangePicker
                 value={dateRange}
                 onChange={(dates) => setDateRange(dates as [dayjs.Dayjs | null, dayjs.Dayjs | null])}
-                style={{ width: '100%', height: 40 }}
+                style={{ width: '100%' }}
                 format="DD/MM/YYYY"
                 placeholder={['Tanggal Mulai', 'Tanggal Akhir']}
               />
@@ -319,7 +331,7 @@ export default function ProceedSKPage() {
                 value={selectedYear}
                 onChange={setSelectedYear}
                 placeholder="Pilih Tahun"
-                style={{ width: '100%', height: 40 }}
+                style={{ width: '100%' }}
                 options={yearOptions.map(y => ({ label: String(y), value: y }))}
               />
             ) : (
@@ -330,15 +342,23 @@ export default function ProceedSKPage() {
                 onPressEnter={handleSearch}
                 prefix={<SearchOutlined />}
                 allowClear
-                size="large"
               />
             )}
           </Col>
-          <Col>
-            <Button type="primary" onClick={handleSearch} loading={loading}>
-              Cari
-            </Button>
-          </Col>
+          {!isDateSearch && !isYearSearch && (
+            <Col xs={24} sm={4}>
+              <Button type="primary" onClick={handleSearch} loading={loading} block>
+                Cari
+              </Button>
+            </Col>
+          )}
+          {(isDateSearch || isYearSearch) && (
+            <Col xs={24} sm={24}>
+              <Button type="primary" onClick={handleSearch} loading={loading} block>
+                Cari
+              </Button>
+            </Col>
+          )}
         </Row>
       </Card>
 
@@ -393,7 +413,7 @@ export default function ProceedSKPage() {
                 </Descriptions.Item>
                 <Descriptions.Item label="Status">
                   <Tag color={STATUS_COLORS[selectedSK.status]}>
-                    {STATUS_TEXT[selectedSK.status]}
+                    {getStatusText(selectedSK.status, selectedSK.current_step)}
                   </Tag>
                 </Descriptions.Item>
                 <Descriptions.Item label="Tahap">
@@ -507,7 +527,7 @@ export default function ProceedSKPage() {
                 </Descriptions.Item>
                 <Descriptions.Item label="Status">
                   <Tag color={STATUS_COLORS[selectedSK.status]}>
-                    {STATUS_TEXT[selectedSK.status]}
+                    {getStatusText(selectedSK.status, selectedSK.current_step)}
                   </Tag>
                 </Descriptions.Item>
                 <Descriptions.Item label="Tahap">

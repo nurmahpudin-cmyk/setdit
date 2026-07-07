@@ -157,6 +157,195 @@ export class CronService {
     });
 
     console.log('[CRON] Weekly jadwal notification scheduled for Sunday 08:00 AM (Jakarta)');
+
+    // Run every day at 08:00 AM for H-1 notifications
+    cron.schedule('0 0 8 * * *', async () => {
+      await this.sendHMinusOneNotification();
+    }, {
+      timezone: 'Asia/Jakarta',
+    });
+
+    console.log('[CRON] H-1 jadwal notification scheduled for daily 08:00 AM (Jakarta)');
+  }
+
+  async sendHMinusOneNotification() {
+    console.log('[CRON] Starting H-1 jadwal notification job...');
+
+    try {
+      // Get tomorrow's date range
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+
+      const tomorrowEnd = new Date(tomorrow);
+      tomorrowEnd.setHours(23, 59, 59, 999);
+
+      // Get all users with ASPRI position
+      const aspriUsers = await prisma.mst_users.findMany({
+        where: {
+          status: 'ACTIVE',
+          is_verified: true,
+          position: {
+            code: 'ASPRI_DIRJEN',
+            is_active: true,
+          },
+        },
+        select: {
+          id: true,
+          fullname: true,
+          phone: true,
+        },
+      });
+
+      if (aspriUsers.length === 0) {
+        console.log('[CRON] No ASPRI_DIRJEN users found');
+        return;
+      }
+
+      // Get jadwal for tomorrow
+      const jadwalList = await prisma.tr_jadwal_pimpinan.findMany({
+        where: {
+          tanggal_awal: {
+            gte: tomorrow,
+            lte: tomorrowEnd,
+          },
+        },
+        include: {
+          creator: { select: { id: true, fullname: true } },
+          pendamping_pegawai: {
+            include: { pegawai: true },
+          },
+          pendamping_direktur: true,
+        },
+        orderBy: { tanggal_awal: 'asc' },
+      });
+
+      if (jadwalList.length === 0) {
+        console.log('[CRON] No jadwal found for tomorrow');
+        return;
+      }
+
+      // Build message
+      const message = this.buildHMinusOneMessage(jadwalList, tomorrow);
+
+      // Get active WhatsApp session
+      const session = await prisma.wa_sessions.findFirst({
+        where: { is_active: true },
+      });
+
+      if (!session) {
+        console.log('[CRON] No active WhatsApp session');
+        return;
+      }
+
+      // Send to each ASPRI user
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const user of aspriUsers) {
+        if (!user.phone) {
+          console.log(`[CRON] User ${user.fullname} has no WhatsApp number, skipping...`);
+          failCount++;
+          continue;
+        }
+
+        try {
+          await whatsappService.sendMessage(
+            session.id,
+            user.phone,
+            message,
+            0 // system user
+          );
+          successCount++;
+          console.log(`[CRON] Sent H-1 to ${user.fullname} (${user.phone})`);
+
+          // Log activity
+          await prisma.activity_logs.create({
+            data: {
+              user_id: 0,
+              module: 'CRON_HMINUS1_JADWAL',
+              action: 'SEND_WA',
+              new_data: {
+                user_id: user.id,
+                phone: user.phone,
+                jadwal_count: jadwalList.length,
+              },
+            },
+          });
+        } catch (error: any) {
+          failCount++;
+          console.error(`[CRON] Failed to send H-1 to ${user.fullname}:`, error.message);
+        }
+      }
+
+      console.log(`[CRON] H-1 notification complete: ${successCount} sent, ${failCount} failed`);
+    } catch (error: any) {
+      console.error('[CRON] Error in H-1 jadwal notification:', error);
+    }
+  }
+
+  private buildHMinusOneMessage(jadwalList: any[], tomorrow: Date): string {
+    const hariNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const bulanNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+    const formatTglFull = (d: Date) => {
+      const hari = hariNames[d.getDay()];
+      const tanggal = d.getDate();
+      const bulan = bulanNames[d.getMonth()];
+      const tahun = d.getFullYear();
+      return `${hari}, ${tanggal} ${bulan} ${tahun}`;
+    };
+
+    const formatTglShort = (d: Date) => hariNames[d.getDay()];
+
+    let message = `*REMINDER - BESOK (${formatTglFull(tomorrow)})*\n\n`;
+    message += `Yth. Ibu Dirjen,\n\n`;
+    message += `Berikut agenda besok untuk Ibu:\n\n`;
+
+    for (const j of jadwalList) {
+      const tglAwal = new Date(j.tanggal_awal);
+      const tglAkhir = new Date(j.tanggal_akhir);
+      const isSameDay = tglAwal.toDateString() === tglAkhir.toDateString();
+
+      let tanggalText = formatTglFull(tglAwal);
+      if (!isSameDay) {
+        tanggalText = `${formatTglShort(tglAwal)} - ${formatTglShort(tglAkhir)}, ${tglAwal.getDate()} - ${tglAkhir.getDate()} ${bulanNames[tglAwal.getMonth()]} ${tglAwal.getFullYear()}`;
+      }
+
+      message += `📅 Tanggal : ${tanggalText}\n`;
+      if (j.waktu) {
+        message += `🕐 Waktu   : ${j.waktu}\n`;
+      }
+      message += `📋 Acara  : ${j.acara}\n`;
+      message += `📍 Lokasi : ${j.lokasi}\n`;
+      message += `👤 Sebagai: ${j.sebagai}\n`;
+      message += `📱 Metode  : ${j.model_rapat}\n`;
+      if (j.catatan) {
+        message += `📝 Catatan : ${j.catatan}\n`;
+      }
+
+      if (j.pendamping_pegawai.length > 0) {
+        message += `Pendamping:\n`;
+        j.pendamping_pegawai.forEach((p: any, idx: number) => {
+          message += `${idx + 1}. ${p.pegawai?.nama_lengkap || '-'}\n`;
+        });
+      }
+
+      if (j.pendamping_direktur.length > 0) {
+        message += `Pendamping Direktorat:\n`;
+        j.pendamping_direktur.forEach((d: any) => {
+          message += `Dir ${d.nama_direktur}\n`;
+        });
+      }
+
+      message += '\n';
+    }
+
+    message += `Mengingat pentingnya agenda ini, dimohon kehadiran tepat waktu.\n\n`;
+    message += `Terima kasih.\n\n`;
+    message += `*Scheduler SETDIT*`;
+
+    return message;
   }
 }
 
