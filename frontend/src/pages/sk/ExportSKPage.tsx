@@ -92,67 +92,62 @@ export default function ExportSKPage() {
   ];
 
   // Helper functions to resolve names from IDs
-  const getProvinsiName = (proid: string) => {
-    const prov = provinsiList.find(p => p.proid === proid);
+  const getProvinsiName = (proid: string | null | undefined) => {
+    if (!proid) return '-';
+    const prov = provinsiList.find(p => p.proid === String(proid));
     return prov?.provinsi || proid || '-';
   };
 
-  const getKabkotaName = (kabid: string) => {
-    const kab = kabkotaList.find(k => k.kabid === kabid);
+  const getKabkotaName = (kabid: string | null | undefined) => {
+    if (!kabid) return '-';
+    const kab = kabkotaList.find(k => k.kabid === String(kabid));
     return kab?.kabkota || kabid || '-';
   };
 
-  const getSkemaName = (skemaId: string | number) => {
-    const skema = skemaList.find(s => String(s.id_skema) === String(skemaId));
-    return skema?.nama_skema || skemaId || '-';
+  const getSkemaName = (skemaId: string | number | null | undefined) => {
+    if (!skemaId) return '-';
+    const skema = skemaList.find(s => s.id_skema === Number(skemaId));
+    return skema?.nama_skema || String(skemaId) || '-';
   };
 
+  // Fetch all master data in parallel, then fetch SK data
   useEffect(() => {
-    fetchProvinsi();
-    fetchSkema();
-    fetchAllKabkota();
-    handleSearch();
+    const fetchAll = async () => {
+      try {
+        const [provRes, skemaRes, kabRes] = await Promise.all([
+          api.get('/provinsi'),
+          api.get('/skema'),
+          api.get('/kabkota'),
+        ]);
+
+        // Set Provinsi
+        const provList = provRes.data.data || [];
+        setProvinsiList(provList);
+        setProvinsiOptions(provList.map((p: MasterProvinsi) => ({
+          label: p.provinsi,
+          value: p.proid,
+        })));
+
+        // Set Skema
+        const skemaDataList = skemaRes.data.data || [];
+        setSkemaList(skemaDataList);
+        setSkemaOptions(skemaDataList.map((s: MasterSkema) => ({
+          label: s.nama_skema,
+          value: String(s.id_skema),
+        })));
+
+        // Set Kabkota
+        setKabkotaList(kabRes.data.data || []);
+
+        // All master data loaded, now fetch SK
+        handleSearch();
+      } catch (err) {
+        console.error('Failed to fetch master data:', err);
+      }
+    };
+
+    fetchAll();
   }, []);
-
-  const fetchProvinsi = async () => {
-    try {
-      const res = await api.get('/provinsi');
-      const list = res.data.data || [];
-      setProvinsiList(list);
-      const options = list.map((p: MasterProvinsi) => ({
-        label: p.provinsi,
-        value: p.proid,
-      }));
-      setProvinsiOptions(options);
-    } catch (err) {
-      console.error('Failed to fetch provinsi:', err);
-    }
-  };
-
-  const fetchSkema = async () => {
-    try {
-      const res = await api.get('/skema');
-      const list = res.data.data || [];
-      setSkemaList(list);
-      const options = list.map((s: MasterSkema) => ({
-        label: s.nama_skema,
-        value: String(s.id_skema),
-      }));
-      setSkemaOptions(options);
-    } catch (err) {
-      console.error('Failed to fetch skema:', err);
-    }
-  };
-
-  const fetchAllKabkota = async () => {
-    try {
-      const res = await api.get('/kabkota');
-      const list = res.data.data || [];
-      setKabkotaList(list);
-    } catch (err) {
-      console.error('Failed to fetch kabkota:', err);
-    }
-  };
 
   const handleSearch = async () => {
     setLoading(true);

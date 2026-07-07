@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Use relative URL in production (nginx proxy handles /api)
+// Use VITE_API_URL only in development
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -34,7 +36,7 @@ api.interceptors.response.use(
       const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken) {
         try {
-          const res = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
+          const res = await api.post('/auth/refresh', { refreshToken });
           const { accessToken, refreshToken: newRefresh } = res.data.data;
 
           localStorage.setItem('accessToken', accessToken);

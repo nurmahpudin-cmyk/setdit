@@ -207,18 +207,49 @@ export default function ProceedSKPage() {
     );
   };
 
-  const columns = [
+  // Mobile columns
+  const mobileColumns = [
+    {
+      title: 'Data SK',
+      key: 'sk_data',
+      render: (_: any, record: SKPerhutanan) => (
+        <div>
+          <Text strong style={{ fontSize: 14 }}>{record.nomor_surat || '-'}</Text>
+          <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+            <Text type="secondary">{record.perihal || '-'}</Text>
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <Tag color={STATUS_COLORS[record.status]}>{STATUS_TEXT[record.status] || record.status}</Tag>
+            <Tag color="blue">{WORKFLOW_STEPS.find(s => s.num === record.current_step)?.name || `Step ${record.current_step}`}</Tag>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Aksi',
+      key: 'aksi',
+      width: 80,
+      render: (_: any, record: SKPerhutanan) => (
+        <Button type="primary" size="small" onClick={() => handleSelectSK(record)} block>
+          Detail
+        </Button>
+      ),
+    },
+  ];
+
+  // Desktop columns
+  const desktopColumns = [
     {
       title: 'No',
       key: 'no',
-      width: screens.xs ? 40 : 50,
+      width: 50,
       render: (_: any, __: any, index: number) => index + 1,
     },
     {
       title: 'Nomor Surat',
       dataIndex: 'nomor_surat',
       key: 'nomor_surat',
-      width: screens.xs ? 100 : 150,
+      width: 150,
       render: (val: string) => val || '-',
     },
     {
@@ -231,14 +262,14 @@ export default function ProceedSKPage() {
       title: 'Unit',
       dataIndex: 'unit_pengusul',
       key: 'unit_pengusul',
-      width: screens.xs ? 60 : 80,
+      width: 80,
       render: (val: string) => <Tag color="blue">{val}</Tag>,
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: screens.xs ? 100 : 130,
+      width: 130,
       render: (status: string) => (
         <Tag color={STATUS_COLORS[status]}>{STATUS_TEXT[status] || status}</Tag>
       ),
@@ -246,7 +277,7 @@ export default function ProceedSKPage() {
     {
       title: 'Tahap',
       key: 'tahap',
-      width: screens.xs ? 100 : 150,
+      width: 150,
       render: (_: any, record: SKPerhutanan) => {
         const step = WORKFLOW_STEPS.find((s) => s.num === record.current_step);
         return <Text>{step?.name || `Step ${record.current_step}`}</Text>;
@@ -256,14 +287,13 @@ export default function ProceedSKPage() {
       title: 'Deadline',
       dataIndex: 'tanggal_deadline',
       key: 'tanggal_deadline',
-      width: screens.xs ? 80 : 100,
+      width: 100,
       render: (date: string) => dayjs(date).format('DD/MM/YY'),
     },
     {
       title: 'Aksi',
       key: 'aksi',
       width: 70,
-      fixed: screens.xs ? ('right' as const) : undefined,
       render: (_: any, record: SKPerhutanan) => (
         <Button type="primary" size="small" onClick={() => handleSelectSK(record)}>
           Detail
@@ -271,6 +301,8 @@ export default function ProceedSKPage() {
       ),
     },
   ];
+
+  const columns = screens.xs ? mobileColumns : desktopColumns;
 
   return (
     <div style={{ padding: 24 }}>
@@ -280,66 +312,62 @@ export default function ProceedSKPage() {
       </Title>
 
       <Card style={{ marginBottom: 24, borderRadius: 12 }}>
-        <Row gutter={16} align="middle">
-          <Col flex="200px">
-            <Select
-              value={searchType}
-              onChange={(val) => {
-                setSearchType(val);
-                setSearchValue('');
-                setDateRange([null, null]);
-                setSelectedYear(null);
-              }}
+        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <Select
+            value={searchType}
+            onChange={(val) => {
+              setSearchType(val);
+              setSearchValue('');
+              setDateRange([null, null]);
+              setSelectedYear(null);
+            }}
+            style={{ width: '100%' }}
+            options={[
+              { label: 'Nama Kelompok', value: 'nama_kelompok' },
+              { label: 'Nomor Surat', value: 'nomor_surat' },
+              { label: 'No. ND', value: 'no_nd' },
+              { label: 'No. SK', value: 'no_sk' },
+              { label: 'Tanggal Surat', value: 'tanggal_surat' },
+              { label: 'Tanggal ND', value: 'tanggal_nd' },
+              { label: 'Tanggal SK', value: 'tanggal_sk' },
+              { label: 'Tahun Surat', value: 'tahun_surat' },
+              { label: 'Tahun ND', value: 'tahun_nd' },
+              { label: 'Tahun SK', value: 'tahun_sk' },
+            ]}
+          />
+
+          {isDateSearch ? (
+            <DatePicker.RangePicker
+              value={dateRange}
+              onChange={(dates) => setDateRange(dates as [dayjs.Dayjs | null, dayjs.Dayjs | null])}
               style={{ width: '100%' }}
-              options={[
-                { label: 'Nama Kelompok', value: 'nama_kelompok' },
-                { label: 'Nomor Surat', value: 'nomor_surat' },
-                { label: 'No. ND', value: 'no_nd' },
-                { label: 'No. SK', value: 'no_sk' },
-                { label: 'Tanggal Surat', value: 'tanggal_surat' },
-                { label: 'Tanggal ND', value: 'tanggal_nd' },
-                { label: 'Tanggal SK', value: 'tanggal_sk' },
-                { label: 'Tahun Surat', value: 'tahun_surat' },
-                { label: 'Tahun ND', value: 'tahun_nd' },
-                { label: 'Tahun SK', value: 'tahun_sk' },
-              ]}
+              format="DD/MM/YYYY"
+              placeholder={['Tanggal Mulai', 'Tanggal Akhir']}
             />
-          </Col>
-          <Col flex="auto">
-            {isDateSearch ? (
-              <DatePicker.RangePicker
-                value={dateRange}
-                onChange={(dates) => setDateRange(dates as [dayjs.Dayjs | null, dayjs.Dayjs | null])}
-                style={{ width: '100%', height: 40 }}
-                format="DD/MM/YYYY"
-                placeholder={['Tanggal Mulai', 'Tanggal Akhir']}
-              />
-            ) : isYearSearch ? (
-              <Select
-                value={selectedYear}
-                onChange={setSelectedYear}
-                placeholder="Pilih Tahun"
-                style={{ width: '100%', height: 40 }}
-                options={yearOptions.map(y => ({ label: String(y), value: y }))}
-              />
-            ) : (
-              <Input
-                placeholder={`Cari...`}
-                value={searchValue}
-                onChange={(e) => setSearchValue(e.target.value)}
-                onPressEnter={handleSearch}
-                prefix={<SearchOutlined />}
-                allowClear
-                size="large"
-              />
-            )}
-          </Col>
-          <Col>
-            <Button type="primary" onClick={handleSearch} loading={loading}>
-              Cari
-            </Button>
-          </Col>
-        </Row>
+          ) : isYearSearch ? (
+            <Select
+              value={selectedYear}
+              onChange={setSelectedYear}
+              placeholder="Pilih Tahun"
+              style={{ width: '100%' }}
+              options={yearOptions.map(y => ({ label: String(y), value: y }))}
+            />
+          ) : (
+            <Input
+              placeholder={`Cari...`}
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              onPressEnter={handleSearch}
+              prefix={<SearchOutlined />}
+              allowClear
+              size="large"
+            />
+          )}
+
+          <Button type="primary" onClick={handleSearch} loading={loading} block>
+            Cari
+          </Button>
+        </Space>
       </Card>
 
       <Card title="Hasil Pencarian" extra={<Text type="secondary">{results.length} data</Text>} style={{ borderRadius: 12 }}>
