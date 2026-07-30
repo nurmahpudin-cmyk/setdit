@@ -59,6 +59,15 @@ router.get('/', skPerhutananController.findAll.bind(skPerhutananController));
  *         description: Statistics data
  */
 router.get('/stats', skPerhutananController.getStats.bind(skPerhutananController));
+router.get('/statistics', skPerhutananController.getStatistics.bind(skPerhutananController));
+
+// Dashboard endpoints
+router.get('/dashboard/stats', skPerhutananController.getDashboardStats.bind(skPerhutananController));
+router.get('/dashboard/status-distribution', skPerhutananController.getStatusDistribution.bind(skPerhutananController));
+router.get('/dashboard/stage-averages', skPerhutananController.getStageAverages.bind(skPerhutananController));
+router.get('/dashboard/recent', skPerhutananController.getRecentSK.bind(skPerhutananController));
+router.get('/dashboard/process-flow', skPerhutananController.getProcessFlow.bind(skPerhutananController));
+router.get('/dashboard/expiring', skPerhutananController.getExpiringSK.bind(skPerhutananController));
 
 /**
  * @swagger

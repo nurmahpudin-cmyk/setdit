@@ -100,6 +100,100 @@ export interface SKStats {
   overdue: number;
 }
 
+export interface YearlyStatistics {
+  year: number;
+  surat_ada: number;
+  nd_ada: number;
+  sk_ada: number;
+  selesai: number;
+  total_luas: number;
+  total_jml_kk: number;
+}
+
+export interface MonthlyStatistics {
+  year: number;
+  month: number;
+  month_name: string;
+  surat_ada: number;
+  nd_ada: number;
+  sk_ada: number;
+  selesai: number;
+  total_luas: number;
+  total_jml_kk: number;
+}
+
+export interface SKStatistics {
+  yearly: YearlyStatistics[];
+  monthly: MonthlyStatistics[];
+  available_years: number[];
+}
+
+export interface StatisticsQuery {
+  year?: number;
+  start_year?: number;
+  end_year?: number;
+}
+
+export interface DashboardStats {
+  total: number;
+  inProgress: number;
+  waitingRevision: number;
+  overdue: number;
+  expiringSoon: number;
+  completed: number;
+  completedOnTime: number;
+}
+
+export interface StatusDistribution {
+  status: string;
+  label: string;
+  color: string;
+  count: number;
+}
+
+export interface StageAverage {
+  stage: string;
+  avgDays: number;
+  count: number;
+}
+
+export interface RecentSK {
+  id: number;
+  nomor: string;
+  perkara: string;
+  currentStep: string;
+  lamaProses: number;
+  targetSelesai: string;
+  status: string;
+  statusLabel: string;
+  isOverdue: boolean;
+}
+
+export interface ProcessFlowItem {
+  step: number;
+  name: string;
+  count: number;
+}
+
+export interface ProcessFlow {
+  byStep: ProcessFlowItem[];
+  summary: {
+    draft: number;
+    inProgress: number;
+    completed: number;
+  };
+}
+
+export interface ExpiringSK {
+  id: number;
+  nomor: string;
+  perkara: string;
+  currentStep: string;
+  deadline: string;
+  daysRemaining: number;
+  isOverdue: boolean;
+}
+
 export interface SKQuery {
   page?: number;
   limit?: number;
@@ -151,7 +245,20 @@ export const skPerhutananApi = {
 
   // Stats
   getStats: () => api.get('/sk-perhutanan/stats'),
+  getStatistics: (query?: StatisticsQuery) => api.get('/sk-perhutanan/statistics', { params: query }),
 
   // Users by Jabatan
   getUsersByJabatan: (jabatanCode: string) => api.get(`/sk-perhutanan/jabatan/${jabatanCode}/users`),
+
+  // Dashboard
+  getDashboardStats: () => api.get('/sk-perhutanan/dashboard/stats'),
+  getStatusDistribution: () => api.get('/sk-perhutanan/dashboard/status-distribution'),
+  getStageAverages: () => api.get('/sk-perhutanan/dashboard/stage-averages'),
+  getRecentSK: (limit?: number) => api.get('/sk-perhutanan/dashboard/recent', {
+    params: limit ? { limit } : undefined,
+  }),
+  getProcessFlow: () => api.get('/sk-perhutanan/dashboard/process-flow'),
+  getExpiringSK: (limit?: number) => api.get('/sk-perhutanan/dashboard/expiring', {
+    params: limit ? { limit } : undefined,
+  }),
 };

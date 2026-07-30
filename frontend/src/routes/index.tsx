@@ -18,6 +18,8 @@ import PegawaiPage from '../pages/pegawai/PegawaiPage.tsx';
 import SkPerhutananPage from '../pages/sk/SkPerhutananPage.tsx';
 import ProceedSKPage from '../pages/sk/ProceedSKPage.tsx';
 import ExportSKPage from '../pages/sk/ExportSKPage.tsx';
+import StatsSKPage from '../pages/sk/StatsSKPage.tsx';
+import MonitoringDashboardPage from '../pages/sk/MonitoringDashboardPage.tsx';
 import ProvinsiPage from '../pages/master/ProvinsiPage.tsx';
 import KabkotaPage from '../pages/master/KabkotaPage.tsx';
 import SkemaPage from '../pages/master/SkemaPage.tsx';
@@ -67,6 +69,8 @@ export function AppRoutes() {
         <Route path="/sk-perhutanan" element={<SkPerhutananPage />} />
         <Route path="/proceed-sk" element={<ProceedSKPage />} />
         <Route path="/export-sk" element={<ExportSKPage />} />
+        <Route path="/stats-sk" element={<StatsSKPage />} />
+        <Route path="/monitoring-dashboard" element={<MonitoringDashboardPage />} />
         <Route path="/master/provinsi" element={<ProvinsiPage />} />
         <Route path="/master/kabkota" element={<KabkotaPage />} />
         <Route path="/master/skema" element={<SkemaPage />} />

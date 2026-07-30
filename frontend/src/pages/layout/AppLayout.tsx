@@ -29,6 +29,7 @@ import {
   KeyOutlined,
   CustomerServiceOutlined,
   SearchOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/useRedux';
@@ -52,6 +53,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/pegawai': 'Data Pegawai',
   '/sk-perhutanan': 'SK Perhutanan Sosial',
   '/proceed-sk': 'Pencarian Proses SK',
+  '/stats-sk': 'Statistik SK',
+  '/monitoring-dashboard': 'Monitoring SK',
   '/master/provinsi': 'Master Provinsi',
   '/master/kabkota': 'Master Kabupaten/Kota',
   '/master/skema': 'Master Skema',
@@ -71,6 +74,8 @@ const menuItems = [
   { key: '/dashboard', icon: <DashboardOutlined />, label: 'Dashboard' },
   { key: '/sk-perhutanan', icon: <FileTextOutlined />, label: 'SK Perhutanan' },
   { key: '/proceed-sk', icon: <SearchOutlined />, label: 'Pencarian Proses SK' },
+  { key: '/stats-sk', icon: <BarChartOutlined />, label: 'Statistik SK' },
+  { key: '/monitoring-dashboard', icon: <DashboardOutlined />, label: 'Monitoring SK' },
   { key: '/master/provinsi', icon: <FileTextOutlined />, label: 'Provinsi' },
   { key: '/master/kabkota', icon: <FileTextOutlined />, label: 'Kabupaten/Kota' },
   { key: '/master/skema', icon: <FileTextOutlined />, label: 'Skema' },

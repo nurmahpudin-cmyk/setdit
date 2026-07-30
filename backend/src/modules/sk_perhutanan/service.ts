@@ -59,23 +59,43 @@ export class SkPerhutananService {
 
     const where: any = {};
 
-    if (query.search && query.search_field) {
-      // Field-specific search
-      const searchField = query.search_field as keyof typeof where;
-      where[searchField] = { contains: query.search, mode: 'insensitive' };
-    } else if (query.search) {
-      // Default: search across multiple fields
-      where.OR = [
-        { nomor_surat: { contains: query.search, mode: 'insensitive' } },
-        { nomor_sk: { contains: query.search, mode: 'insensitive' } },
-        { nomor_nd_sk: { contains: query.search, mode: 'insensitive' } },
-        { kelompok_ps: { contains: query.search, mode: 'insensitive' } },
-        { perihal: { contains: query.search, mode: 'insensitive' } },
-      ];
+    if (query.search) {
+      // Map frontend field names to actual database column names
+      const fieldMap: Record<string, string> = {
+        'nama_kelompok': 'kelompok_ps',
+        'no_nd': 'nomor_nd_sk',
+        'no_sk': 'nomor_sk',
+      };
+
+      const searchField = fieldMap[query.search_field || ''] || query.search_field || '';
+
+      if (searchField) {
+        // Use contains (LIKE) for all field-specific searches
+        where[searchField] = { contains: query.search, mode: 'insensitive' };
+      } else {
+        // Default: search across multiple fields
+        where.OR = [
+          { nomor_surat: { contains: query.search, mode: 'insensitive' } },
+          { nomor_sk: { contains: query.search, mode: 'insensitive' } },
+          { nomor_nd_sk: { contains: query.search, mode: 'insensitive' } },
+          { kelompok_ps: { contains: query.search, mode: 'insensitive' } },
+          { perihal: { contains: query.search, mode: 'insensitive' } },
+        ];
+      }
     }
 
     if (query.status) {
       where.status = query.status;
+    }
+
+    // Filter by provinsi (exact match)
+    if (query.provinsi) {
+      where.provinsi = query.provinsi;
+    }
+
+    // Filter by skema (exact match)
+    if (query.skema) {
+      where.skema = query.skema;
     }
 
     // Filter by user's workflow step based on jabatan_code
@@ -1509,6 +1529,433 @@ Catatan: ${catatanText}`);
     ]);
 
     return { total, inProgress, waitingRevision, completed, overdue };
+  }
+
+  async getStatistics(query: { year?: number; start_year?: number; end_year?: number }) {
+    const currentYear = new Date().getFullYear();
+    const startYear = query.start_year || query.year || 2020;
+    const endYear = query.end_year || query.year || currentYear;
+
+    const yearRange = [];
+    for (let y = startYear; y <= endYear; y++) yearRange.push(y);
+
+    // Helper: get year from a date field, null if field is empty
+    const getYear = (d: Date | null | undefined) => d?.getFullYear();
+
+    // Query all records within year range using tanggal_terima as base
+    const records = await prisma.tr_sk_perhutanan.findMany({
+      where: {
+        tanggal_terima: {
+          gte: new Date(`${startYear}-01-01`),
+          lte: new Date(`${endYear}-12-31T23:59:59`),
+        },
+      },
+      select: {
+        tanggal_surat: true,
+        tanggal_nd_sk: true,
+        tanggal_sk: true,
+        nomor_surat: true,
+        nomor_nd_sk: true,
+        nomor_sk: true,
+        status: true,
+        luas: true,
+        jml_kk: true,
+      },
+    });
+
+    // Aggregate by year
+    const yearlyMap: Record<number, {
+      surat_ada: number;
+      nd_ada: number;
+      sk_ada: number;
+      selesai: number;
+      total_luas: number;
+      total_jml_kk: number;
+    }> = {};
+
+    // Aggregate by month (key: "YYYY-MM")
+    const monthlyMap: Record<string, {
+      year: number;
+      month: number;
+      surat_ada: number;
+      nd_ada: number;
+      sk_ada: number;
+      selesai: number;
+      total_luas: number;
+      total_jml_kk: number;
+    }> = {};
+
+    const BULAN_INDO = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+    for (const r of records) {
+      // --- Surat (by tanggal_surat) ---
+      if (r.nomor_surat && r.tanggal_surat) {
+        const y = getYear(r.tanggal_surat);
+        if (y) {
+          if (!yearlyMap[y]) yearlyMap[y] = { surat_ada: 0, nd_ada: 0, sk_ada: 0, selesai: 0, total_luas: 0, total_jml_kk: 0 };
+          yearlyMap[y].surat_ada++;
+
+          const m = r.tanggal_surat.getMonth() + 1;
+          const mk = `${y}-${String(m).padStart(2, '0')}`;
+          if (!monthlyMap[mk]) monthlyMap[mk] = { year: y, month: m, surat_ada: 0, nd_ada: 0, sk_ada: 0, selesai: 0, total_luas: 0, total_jml_kk: 0 };
+          monthlyMap[mk].surat_ada++;
+        }
+      }
+
+      // --- ND (by tanggal_nd_sk) ---
+      if (r.nomor_nd_sk && r.tanggal_nd_sk) {
+        const y = getYear(r.tanggal_nd_sk);
+        if (y) {
+          if (!yearlyMap[y]) yearlyMap[y] = { surat_ada: 0, nd_ada: 0, sk_ada: 0, selesai: 0, total_luas: 0, total_jml_kk: 0 };
+          yearlyMap[y].nd_ada++;
+
+          const m = r.tanggal_nd_sk.getMonth() + 1;
+          const mk = `${y}-${String(m).padStart(2, '0')}`;
+          if (!monthlyMap[mk]) monthlyMap[mk] = { year: y, month: m, surat_ada: 0, nd_ada: 0, sk_ada: 0, selesai: 0, total_luas: 0, total_jml_kk: 0 };
+          monthlyMap[mk].nd_ada++;
+        }
+      }
+
+      // --- SK + Luas + Jml KK (by tanggal_sk) ---
+      if (r.nomor_sk && r.tanggal_sk) {
+        const y = getYear(r.tanggal_sk);
+        if (y) {
+          if (!yearlyMap[y]) yearlyMap[y] = { surat_ada: 0, nd_ada: 0, sk_ada: 0, selesai: 0, total_luas: 0, total_jml_kk: 0 };
+          yearlyMap[y].sk_ada++;
+          if (r.luas) yearlyMap[y].total_luas += Number(r.luas);
+          if (r.jml_kk) yearlyMap[y].total_jml_kk += r.jml_kk;
+
+          const m = r.tanggal_sk.getMonth() + 1;
+          const mk = `${y}-${String(m).padStart(2, '0')}`;
+          if (!monthlyMap[mk]) monthlyMap[mk] = { year: y, month: m, surat_ada: 0, nd_ada: 0, sk_ada: 0, selesai: 0, total_luas: 0, total_jml_kk: 0 };
+          monthlyMap[mk].sk_ada++;
+          if (r.luas) monthlyMap[mk].total_luas += Number(r.luas);
+          if (r.jml_kk) monthlyMap[mk].total_jml_kk += r.jml_kk;
+        }
+      }
+
+      // --- Selesai (by tanggal_sk, status = COMPLETED) ---
+      if (r.status === 'COMPLETED' && r.tanggal_sk) {
+        const y = getYear(r.tanggal_sk);
+        if (y) {
+          if (!yearlyMap[y]) yearlyMap[y] = { surat_ada: 0, nd_ada: 0, sk_ada: 0, selesai: 0, total_luas: 0, total_jml_kk: 0 };
+          yearlyMap[y].selesai++;
+
+          const m = r.tanggal_sk.getMonth() + 1;
+          const mk = `${y}-${String(m).padStart(2, '0')}`;
+          if (!monthlyMap[mk]) monthlyMap[mk] = { year: y, month: m, surat_ada: 0, nd_ada: 0, sk_ada: 0, selesai: 0, total_luas: 0, total_jml_kk: 0 };
+          monthlyMap[mk].selesai++;
+        }
+      }
+    }
+
+    const yearly = yearRange
+      .map(y => ({
+        year: y,
+        ...(yearlyMap[y] || { surat_ada: 0, nd_ada: 0, sk_ada: 0, selesai: 0, total_luas: 0, total_jml_kk: 0 }),
+      }))
+      .sort((a, b) => a.year - b.year);
+
+    const monthly = Object.entries(monthlyMap)
+      .map(([, v]) => ({
+        ...v,
+        month_name: `${BULAN_INDO[v.month]} ${v.year}`,
+      }))
+      .sort((a, b) => {
+        if (a.year !== b.year) return a.year - b.year;
+        return a.month - b.month;
+      })
+      .filter(m => !query.year || m.year === query.year);
+
+    return {
+      yearly,
+      monthly,
+      available_years: Object.keys(yearlyMap).map(Number).sort((a, b) => a - b),
+    };
+  }
+
+  async getDashboardStats() {
+    const now = new Date();
+    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+    const [
+      total,
+      inProgress,
+      waitingRevision,
+      completed,
+      overdue,
+      expiringSoon,
+    ] = await Promise.all([
+      prisma.tr_sk_perhutanan.count(),
+      prisma.tr_sk_perhutanan.count({ where: { status: 'IN_PROGRESS' } }),
+      prisma.tr_sk_perhutanan.count({ where: { status: 'WAITING_REVISION' } }),
+      prisma.tr_sk_perhutanan.count({ where: { status: 'COMPLETED' } }),
+      prisma.tr_sk_perhutanan.count({
+        where: {
+          tanggal_deadline: { lt: now },
+          status: { notIn: ['COMPLETED'] },
+        },
+      }),
+      prisma.tr_sk_perhutanan.count({
+        where: {
+          tanggal_deadline: {
+            gte: now,
+            lte: threeDaysFromNow,
+          },
+          status: { notIn: ['COMPLETED'] },
+        },
+      }),
+    ]);
+
+    // SK selesai tepat waktu = completed where tanggal_sk <= tanggal_deadline
+    const completedOnTime = await prisma.tr_sk_perhutanan.count({
+      where: {
+        status: 'COMPLETED',
+        tanggal_sk: { lte: prisma.tr_sk_perhutanan.fields.tanggal_deadline },
+      },
+    });
+
+    return {
+      total,
+      inProgress,
+      waitingRevision,
+      overdue,
+      expiringSoon,
+      completed,
+      completedOnTime: completed,
+    };
+  }
+
+  async getStatusDistribution() {
+    const statuses = ['DRAFT', 'IN_PROGRESS', 'WAITING_REVISION', 'APPROVED', 'PROSES_SALINAN_SK', 'COMPLETED'];
+
+    const statusLabels: Record<string, string> = {
+      DRAFT: 'Draft',
+      IN_PROGRESS: 'Dalam Proses',
+      WAITING_REVISION: 'Menunggu Revisi',
+      APPROVED: 'Disetujui',
+      PROSES_SALINAN_SK: 'Proses Salinan SK',
+      COMPLETED: 'Selesai',
+    };
+
+    const statusColors: Record<string, string> = {
+      DRAFT: '#8c8c8c',
+      IN_PROGRESS: '#1890ff',
+      WAITING_REVISION: '#faad14',
+      APPROVED: '#52c41a',
+      PROSES_SALINAN_SK: '#722ed1',
+      COMPLETED: '#13c2c2',
+    };
+
+    const distribution = await Promise.all(
+      statuses.map(async (status) => {
+        const count = await prisma.tr_sk_perhutanan.count({ where: { status } });
+        return {
+          status,
+          label: statusLabels[status],
+          color: statusColors[status],
+          count,
+        };
+      })
+    );
+
+    return distribution;
+  }
+
+  async getStageAverages() {
+    // Get all completed workflow stages with timing data
+    const completedStages = await prisma.tr_sk_workflow.findMany({
+      where: { is_completed: true, completed_at: { not: null } },
+      include: {
+        sk: {
+          select: {
+            created_at: true,
+            tanggal_terima: true,
+            tanggal_sk: true,
+          },
+        },
+      },
+      orderBy: { step_num: 'asc' },
+    });
+
+    // Group stages and calculate averages
+    const stageGroups: Record<string, { totalDays: number; count: number }> = {
+      INPUT: { totalDays: 0, count: 0 },
+      TELAAH: { totalDays: 0, count: 0 },
+      APPROVAL: { totalDays: 0, count: 0 },
+      ARSIP: { totalDays: 0, count: 0 },
+    };
+
+    // Step mapping to groups
+    const stepToGroup = (step: number): string => {
+      if (step === 1) return 'INPUT';
+      if (step === 5) return 'TELAAH';
+      if ([6, 7, 8, 9, 11, 15, 16].includes(step)) return 'APPROVAL';
+      if (step === 17) return 'ARSIP';
+      return 'APPROVAL'; // Default for other steps
+    };
+
+    for (const stage of completedStages) {
+      if (stage.completed_at && stage.created_at) {
+        const days = Math.round(
+          (new Date(stage.completed_at).getTime() - new Date(stage.created_at).getTime()) /
+            (1000 * 60 * 60 * 24)
+        );
+        const group = stepToGroup(stage.step_num);
+        if (stageGroups[group]) {
+          stageGroups[group].totalDays += days;
+          stageGroups[group].count++;
+        }
+      }
+    }
+
+    const groupLabels: Record<string, string> = {
+      INPUT: 'Input',
+      TELAAH: 'Telaah',
+      APPROVAL: 'Approval',
+      ARSIP: 'Arsip',
+    };
+
+    const averages = Object.entries(stageGroups).map(([key, data]) => ({
+      stage: groupLabels[key] || key,
+      avgDays: data.count > 0 ? Math.round(data.totalDays / data.count * 10) / 10 : 0,
+      count: data.count,
+    }));
+
+    // Calculate total average
+    const totalDays = completedStages.reduce((sum, stage) => {
+      if (stage.completed_at && stage.created_at) {
+        return sum + (new Date(stage.completed_at).getTime() - new Date(stage.created_at).getTime()) / (1000 * 60 * 60 * 24);
+      }
+      return sum;
+    }, 0);
+
+    averages.push({
+      stage: 'Total Rata-rata',
+      avgDays: completedStages.length > 0 ? Math.round(totalDays / completedStages.length * 10) / 10 : 0,
+      count: completedStages.length,
+    });
+
+    return averages;
+  }
+
+  async getRecentSK(limit: number = 10) {
+    const recentSK = await prisma.tr_sk_perhutanan.findMany({
+      take: limit,
+      orderBy: { updated_at: 'desc' },
+      include: {
+        stages: {
+          where: { is_completed: true },
+          orderBy: { completed_at: 'desc' },
+          take: 1,
+        },
+      },
+    });
+
+    return recentSK.map((sk) => {
+      const lamaProses = Math.round(
+        (new Date(sk.updated_at).getTime() - new Date(sk.tanggal_terima).getTime()) /
+          (1000 * 60 * 60 * 24)
+      );
+      const isOverdue = sk.status !== 'COMPLETED' && new Date(sk.tanggal_deadline) < new Date();
+      const step = WORKFLOW_STEPS.find((s) => s.num === sk.current_step);
+
+      return {
+        id: sk.id,
+        nomor: sk.nomor_sk || sk.nomor_surat || '-',
+        perkara: sk.perihal,
+        currentStep: step?.name || `Step ${sk.current_step}`,
+        lamaProses,
+        targetSelesai: sk.tanggal_deadline ? new Date(sk.tanggal_deadline).toISOString().split('T')[0] : '-',
+        status: sk.status,
+        statusLabel: this.getStatusLabel(sk.status),
+        isOverdue,
+      };
+    });
+  }
+
+  async getProcessFlow() {
+    const flow: Array<{ step: number; name: string; count: number }> = [];
+
+    for (let i = 1; i <= 17; i++) {
+      const count = await prisma.tr_sk_perhutanan.count({
+        where: {
+          current_step: i,
+          status: { notIn: ['COMPLETED', 'DRAFT'] },
+        },
+      });
+      const step = WORKFLOW_STEPS.find((s) => s.num === i);
+      flow.push({
+        step: i,
+        name: step?.name || `Step ${i}`,
+        count,
+      });
+    }
+
+    // Also include DRAFT count
+    const draftCount = await prisma.tr_sk_perhutanan.count({
+      where: { status: 'DRAFT' },
+    });
+    const completedCount = await prisma.tr_sk_perhutanan.count({
+      where: { status: 'COMPLETED' },
+    });
+
+    return {
+      byStep: flow,
+      summary: {
+        draft: draftCount,
+        inProgress: flow.reduce((sum, f) => sum + f.count, 0),
+        completed: completedCount,
+      },
+    };
+  }
+
+  async getExpiringSK(limit: number = 10) {
+    const now = new Date();
+    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+    const expiringSK = await prisma.tr_sk_perhutanan.findMany({
+      where: {
+        tanggal_deadline: {
+          gte: now,
+          lte: threeDaysFromNow,
+        },
+        status: { notIn: ['COMPLETED'] },
+      },
+      orderBy: { tanggal_deadline: 'asc' },
+      take: limit,
+    });
+
+    return expiringSK.map((sk) => {
+      const daysUntilDeadline = Math.ceil(
+        (new Date(sk.tanggal_deadline).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      const step = WORKFLOW_STEPS.find((s) => s.num === sk.current_step);
+
+      return {
+        id: sk.id,
+        nomor: sk.nomor_sk || sk.nomor_surat || '-',
+        perkara: sk.perihal,
+        currentStep: step?.name || `Step ${sk.current_step}`,
+        deadline: sk.tanggal_deadline ? new Date(sk.tanggal_deadline).toISOString().split('T')[0] : '-',
+        daysRemaining: daysUntilDeadline,
+        isOverdue: daysUntilDeadline <= 0,
+      };
+    });
+  }
+
+  private getStatusLabel(status: string): string {
+    const labels: Record<string, string> = {
+      DRAFT: 'Draft',
+      IN_PROGRESS: 'Dalam Proses',
+      WAITING_REVISION: 'Menunggu Revisi',
+      APPROVED: 'Disetujui',
+      SIGNED: 'Ditandatangani',
+      PROSES_SALINAN_SK: 'Proses Salinan SK',
+      COMPLETED: 'Selesai',
+    };
+    return labels[status] || status;
   }
 
   async getUsersByJabatan(jabatanCode: string) {

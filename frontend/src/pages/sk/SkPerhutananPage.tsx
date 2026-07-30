@@ -79,6 +79,7 @@ export default function SkPerhutananPage() {
   const [processForm] = Form.useForm();
   const [searchText, setSearchText] = useState('');
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0 });
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(null);
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
   const [unitFilter, setUnitFilter] = useState<string | undefined>();
   const [provinsiList, setProvinsiList] = useState<Provinsi[]>([]);
@@ -88,12 +89,14 @@ export default function SkPerhutananPage() {
   const [kelompokPSList, setKelompokPSList] = useState<KelompokPS[]>([]);
   const [anggotaUsers, setAnggotaUsers] = useState<{ id: number; fullname: string }[]>([]);
 
+  const { RangePicker } = DatePicker;
+
   useEffect(() => {
     const controller = new AbortController();
     fetchData(controller.signal);
     fetchMasterData(controller.signal);
     return () => controller.abort();
-  }, [pagination.page, pagination.limit, statusFilter, unitFilter, user]);
+  }, [pagination.page, pagination.limit, statusFilter, unitFilter, dateRange, user]);
 
   const fetchMasterData = async (signal?: AbortSignal) => {
     try {
@@ -138,6 +141,9 @@ export default function SkPerhutananPage() {
         unit_pengusul: unitFilter,
         jabatan_code: userJabatan,
         userId: user?.id,
+        start_date: dateRange?.[0]?.format('YYYY-MM-DD'),
+        end_date: dateRange?.[1]?.format('YYYY-MM-DD'),
+        date_field: dateRange ? 'tanggal_terima' : undefined,
       });
       console.log('[DEBUG] API Response:', res.data);
       if (signal?.aborted) return;
@@ -151,7 +157,7 @@ export default function SkPerhutananPage() {
     } finally {
       setLoading(false);
     }
-  }, [user, pagination.page, pagination.limit, searchText, statusFilter, unitFilter]);
+  }, [user, pagination.page, pagination.limit, searchText, statusFilter, unitFilter, dateRange]);
 
   const handleAdd = () => {
     setEditingId(null);
@@ -346,14 +352,20 @@ export default function SkPerhutananPage() {
       title: 'Nomor Surat',
       dataIndex: 'nomor_surat',
       key: 'nomor_surat',
-      render: (text) => text || '-',
+      width: 180,
       responsive: ['md'],
+      render: (text: string) => (
+        <div style={{ wordWrap: 'break-word', wordBreak: 'break-word' }}>{text || '-'}</div>
+      ),
     },
     {
       title: 'Perihal',
       dataIndex: 'perihal',
       key: 'perihal',
-      ellipsis: true,
+      width: 250,
+      render: (text: string) => (
+        <div style={{ wordWrap: 'break-word', wordBreak: 'break-word' }}>{text || '-'}</div>
+      ),
     },
     {
       title: 'Unit',
@@ -423,9 +435,11 @@ export default function SkPerhutananPage() {
       <Card
         title="SK Perhutanan Sosial"
         extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-            Input SK Baru
-          </Button>
+          <Space wrap>
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+              Input SK Baru
+            </Button>
+          </Space>
         }
       >
         <Row gutter={[8, 8]} style={{ marginBottom: 16 }}>
@@ -442,12 +456,28 @@ export default function SkPerhutananPage() {
               allowClear
             />
           </Col>
-          <Col xs={12} sm={6} md={4}>
+          <Col xs={24} sm={12} md={10}>
+            <RangePicker
+              style={{ width: '100%' }}
+              placeholder={['Tanggal Mulai', 'Tanggal Selesai']}
+              value={dateRange}
+              onChange={(dates) => {
+                setDateRange(dates as [dayjs.Dayjs | null, dayjs.Dayjs | null] | null);
+                setPagination({ ...pagination, page: 1 });
+              }}
+              format="DD/MM/YYYY"
+              allowClear
+            />
+          </Col>
+          <Col xs={12} sm={6} md={3}>
             <Select
               placeholder="Status"
               allowClear
               style={{ width: '100%' }}
-              onChange={(val) => setStatusFilter(val)}
+              onChange={(val) => {
+                setStatusFilter(val);
+                setPagination({ ...pagination, page: 1 });
+              }}
               options={[
                 { label: 'Draft', value: 'DRAFT' },
                 { label: 'Proses', value: 'IN_PROGRESS' },
@@ -456,12 +486,15 @@ export default function SkPerhutananPage() {
               ]}
             />
           </Col>
-          <Col xs={12} sm={6} md={4}>
+          <Col xs={12} sm={6} md={3}>
             <Select
               placeholder="Unit"
               allowClear
               style={{ width: '100%' }}
-              onChange={(val) => setUnitFilter(val)}
+              onChange={(val) => {
+                setUnitFilter(val);
+                setPagination({ ...pagination, page: 1 });
+              }}
               options={[
                 { label: 'PKPS', value: 'PKPS' },
                 { label: 'PKTHA', value: 'PKTHA' },

@@ -87,7 +87,7 @@ export default function ProceedSKPage() {
   const [modalVisible, setModalVisible] = useState(false);
   const screens = useBreakpoint();
 
-  const [searchType, setSearchType] = useState<'nama_kelompok' | 'nomor_surat' | 'no_nd' | 'no_sk' | 'tanggal_surat' | 'tanggal_nd' | 'tanggal_sk' | 'tahun_surat' | 'tahun_nd' | 'tahun_sk'>('nama_kelompok');
+  const [searchType, setSearchType] = useState<'text' | 'tanggal_surat' | 'tanggal_nd' | 'tanggal_sk' | 'tahun'>('text');
   const [searchValue, setSearchValue] = useState('');
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null]>([null, null]);
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
@@ -97,7 +97,7 @@ export default function ProceedSKPage() {
 
   const handleSearch = async () => {
     const isDateSearch = ['tanggal_surat', 'tanggal_nd', 'tanggal_sk'].includes(searchType);
-    const isYearSearch = ['tahun_surat', 'tahun_nd', 'tahun_sk'].includes(searchType);
+    const isYearSearch = searchType === 'tahun';
 
     if (isDateSearch) {
       if (!dateRange[0] || !dateRange[1]) return;
@@ -123,22 +123,9 @@ export default function ProceedSKPage() {
         }
       } else if (isYearSearch) {
         query.year = selectedYear;
-        if (searchType === 'tahun_surat') {
-          query.date_field = 'tanggal_surat';
-        } else if (searchType === 'tahun_nd') {
-          query.date_field = 'tanggal_nd_sk';
-        } else if (searchType === 'tahun_sk') {
-          query.date_field = 'tanggal_sk';
-        }
+        query.date_field = 'tanggal_surat';
       } else {
         query.search = searchValue;
-        // Map frontend field names to backend field names
-        const fieldMap: Record<string, string> = {
-          'nama_kelompok': 'kelompok_ps',
-          'no_nd': 'nomor_nd_sk',
-          'no_sk': 'nomor_sk',
-        };
-        query.search_field = fieldMap[searchType] || searchType;
       }
 
       const res = await skPerhutananApi.getAll(query);
@@ -227,7 +214,7 @@ export default function ProceedSKPage() {
             <Text type="secondary">{record.perihal || '-'}</Text>
           </div>
           <div style={{ marginTop: 8 }}>
-            <Tag color={STATUS_COLORS[record.status]}>{STATUS_TEXT[record.status] || record.status}</Tag>
+            <Tag color={STATUS_COLORS[record.status]}>{getStatusText(record.status, record.current_step)}</Tag>
             <Tag color="blue">{WORKFLOW_STEPS.find(s => s.num === record.current_step)?.name || `Step ${record.current_step}`}</Tag>
           </div>
         </div>
@@ -258,13 +245,18 @@ export default function ProceedSKPage() {
       dataIndex: 'nomor_surat',
       key: 'nomor_surat',
       width: screens.xs ? 100 : 150,
-      render: (val: string) => val || '-',
+      render: (val: string) => (
+        <div style={{ wordWrap: 'break-word', wordBreak: 'break-word' }}>{val || '-'}</div>
+      ),
     },
     {
       title: 'Perihal',
       dataIndex: 'perihal',
       key: 'perihal',
-      ellipsis: true,
+      width: 200,
+      render: (val: string) => (
+        <div style={{ wordWrap: 'break-word', wordBreak: 'break-word' }}>{val || '-'}</div>
+      ),
     },
     {
       title: 'Unit',
@@ -279,16 +271,20 @@ export default function ProceedSKPage() {
       key: 'status',
       width: screens.xs ? 100 : 130,
       render: (status: string) => (
-        <Tag color={STATUS_COLORS[status]}>{STATUS_TEXT[status] || status}</Tag>
+        <Tag color={STATUS_COLORS[status]}>{getStatusText(status)}</Tag>
       ),
     },
     {
       title: 'Tahap',
       key: 'tahap',
-      width: screens.xs ? 100 : 150,
+      width: screens.xs ? 100 : 180,
       render: (_: any, record: SKPerhutanan) => {
         const step = WORKFLOW_STEPS.find((s) => s.num === record.current_step);
-        return <Text>{step?.name || `Step ${record.current_step}`}</Text>;
+        return (
+          <div style={{ wordWrap: 'break-word', wordBreak: 'break-word' }}>
+            <Text>{step?.name || `Step ${record.current_step}`}</Text>
+          </div>
+        );
       },
     },
     {
@@ -332,16 +328,11 @@ export default function ProceedSKPage() {
               }}
               style={{ width: '100%' }}
               options={[
-                { label: 'Nama Kelompok', value: 'nama_kelompok' },
-                { label: 'Nomor Surat', value: 'nomor_surat' },
-                { label: 'No. ND', value: 'no_nd' },
-                { label: 'No. SK', value: 'no_sk' },
+                { label: 'Cari', value: 'text' },
                 { label: 'Tanggal Surat', value: 'tanggal_surat' },
                 { label: 'Tanggal ND', value: 'tanggal_nd' },
                 { label: 'Tanggal SK', value: 'tanggal_sk' },
-                { label: 'Tahun Surat', value: 'tahun_surat' },
-                { label: 'Tahun ND', value: 'tahun_nd' },
-                { label: 'Tahun SK', value: 'tahun_sk' },
+                { label: 'Tahun', value: 'tahun' },
               ]}
             />
           </Col>

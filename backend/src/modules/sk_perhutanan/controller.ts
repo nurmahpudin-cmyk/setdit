@@ -78,7 +78,7 @@ const nomorSKSchema = z.object({
 export class SkPerhutananController {
   async findAll(req: Request, res: Response) {
     try {
-      const { page, limit, search, status, unit_pengusul, start_date, end_date, jabatan_code, date_field, search_field, year } = req.query;
+      const { page, limit, search, status, unit_pengusul, start_date, end_date, jabatan_code, date_field, search_field, year, provinsi, skema } = req.query;
       const authReq = req as AuthRequest;
       const userId = authReq.user?.id;
 
@@ -94,6 +94,8 @@ export class SkPerhutananController {
         date_field: date_field ? String(date_field) : undefined,
         search_field: search_field ? String(search_field) : undefined,
         year: year ? parseInt(String(year)) : undefined,
+        provinsi: provinsi ? String(provinsi) : undefined,
+        skema: skema ? String(skema) : undefined,
         userId,
       });
 
@@ -253,11 +255,81 @@ export class SkPerhutananController {
     }
   }
 
+  async getStatistics(req: Request, res: Response) {
+    try {
+      const { year, start_year, end_year } = req.query;
+      const statistics = await skPerhutananService.getStatistics({
+        year: year ? parseInt(String(year)) : undefined,
+        start_year: start_year ? parseInt(String(start_year)) : undefined,
+        end_year: end_year ? parseInt(String(end_year)) : undefined,
+      });
+      apiResponse(res, statistics);
+    } catch (error: any) {
+      apiError(res, error.message, 400);
+    }
+  }
+
   async getUsersByJabatan(req: Request, res: Response) {
     try {
       const { jabatanCode } = req.params;
       const users = await skPerhutananService.getUsersByJabatan(String(jabatanCode));
       apiResponse(res, users);
+    } catch (error: any) {
+      apiError(res, error.message, 400);
+    }
+  }
+
+  async getDashboardStats(req: Request, res: Response) {
+    try {
+      const stats = await skPerhutananService.getDashboardStats();
+      apiResponse(res, stats);
+    } catch (error: any) {
+      apiError(res, error.message, 400);
+    }
+  }
+
+  async getStatusDistribution(req: Request, res: Response) {
+    try {
+      const distribution = await skPerhutananService.getStatusDistribution();
+      apiResponse(res, distribution);
+    } catch (error: any) {
+      apiError(res, error.message, 400);
+    }
+  }
+
+  async getStageAverages(req: Request, res: Response) {
+    try {
+      const averages = await skPerhutananService.getStageAverages();
+      apiResponse(res, averages);
+    } catch (error: any) {
+      apiError(res, error.message, 400);
+    }
+  }
+
+  async getRecentSK(req: Request, res: Response) {
+    try {
+      const { limit } = req.query;
+      const recentSK = await skPerhutananService.getRecentSK(limit ? parseInt(String(limit)) : 10);
+      apiResponse(res, recentSK);
+    } catch (error: any) {
+      apiError(res, error.message, 400);
+    }
+  }
+
+  async getProcessFlow(req: Request, res: Response) {
+    try {
+      const flow = await skPerhutananService.getProcessFlow();
+      apiResponse(res, flow);
+    } catch (error: any) {
+      apiError(res, error.message, 400);
+    }
+  }
+
+  async getExpiringSK(req: Request, res: Response) {
+    try {
+      const { limit } = req.query;
+      const expiringSK = await skPerhutananService.getExpiringSK(limit ? parseInt(String(limit)) : 10);
+      apiResponse(res, expiringSK);
     } catch (error: any) {
       apiError(res, error.message, 400);
     }
