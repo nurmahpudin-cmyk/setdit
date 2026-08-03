@@ -33,7 +33,7 @@ export class ProvinsiController {
 
   async findById(req: Request, res: Response) {
     try {
-      const provinsi = await provinsiService.findById(req.params.id);
+      const provinsi = await provinsiService.findById(String(req.params.id));
       apiResponse(res, provinsi);
     } catch (error: any) {
       apiError(res, error.message, 404);
@@ -54,7 +54,7 @@ export class ProvinsiController {
   async update(req: Request, res: Response) {
     try {
       const data = updateSchema.parse(req.body);
-      const provinsi = await provinsiService.update(req.params.id, data);
+      const provinsi = await provinsiService.update(String(req.params.id), data);
       apiResponse(res, provinsi, 'Provinsi berhasil diupdate');
     } catch (error: any) {
       if (error instanceof z.ZodError) apiError(res, 'Validation error', 400, error.errors);
@@ -64,7 +64,7 @@ export class ProvinsiController {
 
   async delete(req: Request, res: Response) {
     try {
-      await provinsiService.delete(req.params.id);
+      await provinsiService.delete(String(req.params.id));
       apiResponse(res, null, 'Provinsi berhasil dihapus');
     } catch (error: any) {
       apiError(res, error.message, 400);

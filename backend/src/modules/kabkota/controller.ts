@@ -34,7 +34,7 @@ export class KabkotaController {
 
   async findById(req: Request, res: Response) {
     try {
-      const kabkota = await kabkotaService.findById(req.params.id);
+      const kabkota = await kabkotaService.findById(String(req.params.id));
       apiResponse(res, kabkota);
     } catch (error: any) {
       apiError(res, error.message, 404);
@@ -55,7 +55,7 @@ export class KabkotaController {
   async update(req: Request, res: Response) {
     try {
       const data = updateSchema.parse(req.body);
-      const kabkota = await kabkotaService.update(req.params.id, data);
+      const kabkota = await kabkotaService.update(String(req.params.id), data);
       apiResponse(res, kabkota, 'Kabupaten/Kota berhasil diupdate');
     } catch (error: any) {
       if (error instanceof z.ZodError) apiError(res, 'Validation error', 400, error.errors);
@@ -65,7 +65,7 @@ export class KabkotaController {
 
   async delete(req: Request, res: Response) {
     try {
-      await kabkotaService.delete(req.params.id);
+      await kabkotaService.delete(String(req.params.id));
       apiResponse(res, null, 'Kabupaten/Kota berhasil dihapus');
     } catch (error: any) {
       apiError(res, error.message, 400);

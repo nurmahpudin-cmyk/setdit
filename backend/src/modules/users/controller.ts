@@ -52,7 +52,7 @@ export class UsersController {
 
   async findById(req: Request, res: Response) {
     try {
-      const user = await usersService.findById(parseInt(req.params.id));
+      const user = await usersService.findById(parseInt(String(req.params.id)));
       apiResponse(res, user);
     } catch (error: any) {
       apiError(res, error.message, 404);
@@ -76,7 +76,7 @@ export class UsersController {
   async update(req: Request, res: Response) {
     try {
       const data = updateSchema.parse(req.body);
-      const user = await usersService.update(parseInt(req.params.id), data);
+      const user = await usersService.update(parseInt(String(req.params.id)), data as any);
       apiResponse(res, user, 'User updated');
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -89,7 +89,7 @@ export class UsersController {
 
   async delete(req: Request, res: Response) {
     try {
-      const result = await usersService.delete(parseInt(req.params.id));
+      const result = await usersService.delete(parseInt(String(req.params.id)));
       apiResponse(res, result);
     } catch (error: any) {
       apiError(res, error.message, 400);
@@ -101,7 +101,7 @@ export class UsersController {
       const authReq = req as any;
       const data = approveSchema.parse(req.body);
       const result = await usersService.approve(
-        parseInt(req.params.id),
+        parseInt(String(req.params.id)),
         authReq.user.id,
         data.status,
         data.notes
@@ -118,7 +118,7 @@ export class UsersController {
 
   async activate(req: Request, res: Response) {
     try {
-      const result = await usersService.activate(parseInt(req.params.id));
+      const result = await usersService.activate(parseInt(String(req.params.id)));
       apiResponse(res, result);
     } catch (error: any) {
       apiError(res, error.message, 400);
@@ -127,7 +127,7 @@ export class UsersController {
 
   async deactivate(req: Request, res: Response) {
     try {
-      const result = await usersService.deactivate(parseInt(req.params.id));
+      const result = await usersService.deactivate(parseInt(String(req.params.id)));
       apiResponse(res, result);
     } catch (error: any) {
       apiError(res, error.message, 400);
@@ -137,7 +137,7 @@ export class UsersController {
   async assignRoles(req: Request, res: Response) {
     try {
       const data = assignRolesSchema.parse(req.body);
-      const result = await usersService.assignRoles(parseInt(req.params.id), data.role_ids);
+      const result = await usersService.assignRoles(parseInt(String(req.params.id)), data.role_ids);
       apiResponse(res, result);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -150,7 +150,7 @@ export class UsersController {
 
   async getEffectivePermissions(req: Request, res: Response) {
     try {
-      const result = await usersService.getEffectivePermissions(parseInt(req.params.id));
+      const result = await usersService.getEffectivePermissions(parseInt(String(req.params.id)));
       apiResponse(res, result);
     } catch (error: any) {
       apiError(res, error.message, 400);

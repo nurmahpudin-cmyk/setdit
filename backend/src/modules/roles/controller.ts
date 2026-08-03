@@ -32,7 +32,7 @@ export class RolesController {
 
   async findById(req: Request, res: Response) {
     try {
-      const role = await rolesService.findById(parseInt(req.params.id));
+      const role = await rolesService.findById(parseInt(String(req.params.id)));
       apiResponse(res, role);
     } catch (error: any) {
       apiError(res, error.message, 404);
@@ -53,7 +53,7 @@ export class RolesController {
   async update(req: Request, res: Response) {
     try {
       const data = updateSchema.parse(req.body);
-      const role = await rolesService.update(parseInt(req.params.id), data);
+      const role = await rolesService.update(parseInt(String(req.params.id)), data);
       apiResponse(res, role, 'Role updated');
     } catch (error: any) {
       if (error instanceof z.ZodError) apiError(res, 'Validation error', 400, error.errors);
@@ -63,7 +63,7 @@ export class RolesController {
 
   async delete(req: Request, res: Response) {
     try {
-      const result = await rolesService.delete(parseInt(req.params.id));
+      const result = await rolesService.delete(parseInt(String(req.params.id)));
       apiResponse(res, result);
     } catch (error: any) {
       apiError(res, error.message, 400);
@@ -73,7 +73,7 @@ export class RolesController {
   async assignPermissions(req: Request, res: Response) {
     try {
       const data = assignPermissionsSchema.parse(req.body);
-      const result = await rolesService.assignPermissions(parseInt(req.params.id), data.permission_ids);
+      const result = await rolesService.assignPermissions(parseInt(String(req.params.id)), data.permission_ids);
       apiResponse(res, result);
     } catch (error: any) {
       if (error instanceof z.ZodError) apiError(res, 'Validation error', 400, error.errors);
@@ -83,7 +83,7 @@ export class RolesController {
 
   async getPermissions(req: Request, res: Response) {
     try {
-      const permissions = await rolesService.getPermissions(parseInt(req.params.id));
+      const permissions = await rolesService.getPermissions(parseInt(String(req.params.id)));
       apiResponse(res, permissions);
     } catch (error: any) {
       apiError(res, error.message, 400);

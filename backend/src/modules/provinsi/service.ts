@@ -42,16 +42,7 @@ export class ProvinsiService {
     if (existing) throw new Error('Provinsi dengan ID ini sudah ada');
 
     return prisma.mst_provinsi.create({
-      data: {
-        proid: data.proid,
-        provinsi: data.provinsi,
-        nama_gubern: data.nama_gubern,
-        email: data.email,
-        wilayah: data.wilayah,
-        nama_dinas: data.nama_dinas,
-        sk_perkembangan: data.sk_perkembangan,
-        tgl_sk_perkembangan: data.tgl_sk_perkembangan,
-      },
+      data: data as any,
     });
   }
 
@@ -67,7 +58,10 @@ export class ProvinsiService {
     const provinsi = await prisma.mst_provinsi.findUnique({ where: { proid } });
     if (!provinsi) throw new Error('Provinsi not found');
 
-    return prisma.mst_provinsi.update({ where: { proid }, data });
+    return prisma.mst_provinsi.update({
+      where: { proid },
+      data: data as any,
+    });
   }
 
   async delete(proid: string) {

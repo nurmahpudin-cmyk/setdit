@@ -25,7 +25,7 @@ export class WhatsAppController {
 
   async findById(req: Request, res: Response) {
     try {
-      const session = await whatsappService.getSession(parseInt(req.params.id));
+      const session = await whatsappService.getSession(parseInt(String(req.params.id)));
       apiResponse(res, session);
     } catch (error: any) {
       apiError(res, error.message, error.message === 'Session not found' ? 404 : 400);
@@ -48,7 +48,7 @@ export class WhatsAppController {
 
   async delete(req: Request, res: Response) {
     try {
-      await whatsappService.deleteSession(parseInt(req.params.id));
+      await whatsappService.deleteSession(parseInt(String(req.params.id)));
       apiResponse(res, null, 'Session deleted');
     } catch (error: any) {
       apiError(res, error.message, 400);
@@ -57,7 +57,7 @@ export class WhatsAppController {
 
   async getQRCode(req: Request, res: Response) {
     try {
-      const qr = await whatsappService.getQRCode(parseInt(req.params.id));
+      const qr = await whatsappService.getQRCode(parseInt(String(req.params.id)));
       apiResponse(res, qr);
     } catch (error: any) {
       apiError(res, error.message, error.message === 'Session not found' ? 404 : 400);
@@ -69,7 +69,7 @@ export class WhatsAppController {
       const data = sendMessageSchema.parse(req.body);
       const authReq = req as AuthRequest;
       const result = await whatsappService.sendMessage(
-        parseInt(req.params.id),
+        parseInt(String(req.params.id)),
         data.phone,
         data.message,
         authReq.user!.id

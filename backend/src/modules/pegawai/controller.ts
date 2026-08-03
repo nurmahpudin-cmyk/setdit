@@ -40,7 +40,7 @@ export class PegawaiController {
 
   async findById(req: Request, res: Response) {
     try {
-      const pegawai = await pegawaiService.findById(parseInt(req.params.id));
+      const pegawai = await pegawaiService.findById(parseInt(String(req.params.id)));
       apiResponse(res, pegawai);
     } catch (error: any) {
       apiError(res, error.message, 404);
@@ -68,7 +68,7 @@ export class PegawaiController {
   async update(req: Request, res: Response) {
     try {
       const data = updateSchema.parse(req.body);
-      const pegawai = await pegawaiService.update(parseInt(req.params.id), data);
+      const pegawai = await pegawaiService.update(parseInt(String(req.params.id)), data as any);
       apiResponse(res, pegawai, 'Pegawai berhasil diperbarui');
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -81,7 +81,7 @@ export class PegawaiController {
 
   async delete(req: Request, res: Response) {
     try {
-      const result = await pegawaiService.delete(parseInt(req.params.id));
+      const result = await pegawaiService.delete(parseInt(String(req.params.id)));
       apiResponse(res, result);
     } catch (error: any) {
       apiError(res, error.message, 400);

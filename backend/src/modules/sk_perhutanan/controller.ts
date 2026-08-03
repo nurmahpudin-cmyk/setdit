@@ -107,7 +107,7 @@ export class SkPerhutananController {
 
   async findById(req: Request, res: Response) {
     try {
-      const sk = await skPerhutananService.findById(parseInt(req.params.id));
+      const sk = await skPerhutananService.findById(parseInt(String(req.params.id)));
       apiResponse(res, sk);
     } catch (error: any) {
       apiError(res, error.message, error.message === 'SK not found' ? 404 : 400);
@@ -134,7 +134,7 @@ export class SkPerhutananController {
     try {
       const data = updateSchema.parse(req.body);
 
-      const sk = await skPerhutananService.update(parseInt(req.params.id), data as any);
+      const sk = await skPerhutananService.update(parseInt(String(req.params.id)), data as any);
       apiResponse(res, sk, 'SK berhasil diupdate');
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -148,7 +148,7 @@ export class SkPerhutananController {
   async submit(req: Request, res: Response) {
     try {
       const authReq = req as AuthRequest;
-      const result = await skPerhutananService.submit(parseInt(req.params.id), authReq.user!.id);
+      const result = await skPerhutananService.submit(parseInt(String(req.params.id)), authReq.user!.id);
       apiResponse(res, result, 'SK berhasil disubmit');
     } catch (error: any) {
       apiError(res, error.message, 400);
@@ -161,7 +161,7 @@ export class SkPerhutananController {
       const authReq = req as AuthRequest;
 
       const result = await skPerhutananService.processStep(
-        parseInt(req.params.id),
+        parseInt(String(req.params.id)),
         data as any,
         authReq.user!.id,
         authReq.user!.jabatan_codes || []
@@ -182,7 +182,7 @@ export class SkPerhutananController {
       const authReq = req as AuthRequest;
 
       const result = await skPerhutananService.addNomorND(
-        parseInt(req.params.id),
+        parseInt(String(req.params.id)),
         data as any,
         authReq.user!.id
       );
@@ -199,7 +199,7 @@ export class SkPerhutananController {
   async signSK(req: Request, res: Response) {
     try {
       const authReq = req as AuthRequest;
-      const result = await skPerhutananService.signSK(parseInt(req.params.id), authReq.user!.id);
+      const result = await skPerhutananService.signSK(parseInt(String(req.params.id)), authReq.user!.id);
       apiResponse(res, result, 'SK berhasil ditandatangani');
     } catch (error: any) {
       apiError(res, error.message, 400);
@@ -212,7 +212,7 @@ export class SkPerhutananController {
       const authReq = req as AuthRequest;
 
       const result = await skPerhutananService.addNomorSK(
-        parseInt(req.params.id),
+        parseInt(String(req.params.id)),
         data as any,
         authReq.user!.id
       );
@@ -229,7 +229,7 @@ export class SkPerhutananController {
   async finalize(req: Request, res: Response) {
     try {
       const authReq = req as AuthRequest;
-      const result = await skPerhutananService.finalize(parseInt(req.params.id), authReq.user!.id);
+      const result = await skPerhutananService.finalize(parseInt(String(req.params.id)), authReq.user!.id);
       apiResponse(res, result, 'SK berhasil difinalisasi');
     } catch (error: any) {
       apiError(res, error.message, 400);

@@ -58,6 +58,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/master/provinsi': 'Master Provinsi',
   '/master/kabkota': 'Master Kabupaten/Kota',
   '/master/skema': 'Master Skema',
+  '/master/jenis-surat': 'Master Jenis Surat',
 };
 
 const { Header, Sider, Content } = Layout;
@@ -79,6 +80,7 @@ const menuItems = [
   { key: '/master/provinsi', icon: <FileTextOutlined />, label: 'Provinsi' },
   { key: '/master/kabkota', icon: <FileTextOutlined />, label: 'Kabupaten/Kota' },
   { key: '/master/skema', icon: <FileTextOutlined />, label: 'Skema' },
+  { key: '/master/jenis-surat', icon: <FileTextOutlined />, label: 'Jenis Surat' },
   { key: '/users', icon: <UserOutlined />, label: 'Pengguna' },
   { key: '/roles', icon: <TeamOutlined />, label: 'Role' },
   { key: '/permissions', icon: <LockOutlined />, label: 'Permission' },

@@ -33,7 +33,7 @@ export class UnitsController {
 
   async findById(req: Request, res: Response) {
     try {
-      const unit = await unitsService.findById(parseInt(req.params.id));
+      const unit = await unitsService.findById(parseInt(String(req.params.id)));
       apiResponse(res, unit);
     } catch (error: any) {
       apiError(res, error.message, 404);
@@ -54,7 +54,7 @@ export class UnitsController {
   async update(req: Request, res: Response) {
     try {
       const data = updateSchema.parse(req.body);
-      const unit = await unitsService.update(parseInt(req.params.id), data);
+      const unit = await unitsService.update(parseInt(String(req.params.id)), data as any);
       apiResponse(res, unit, 'Unit updated');
     } catch (error: any) {
       if (error instanceof z.ZodError) apiError(res, 'Validation error', 400, error.errors);
@@ -64,7 +64,7 @@ export class UnitsController {
 
   async delete(req: Request, res: Response) {
     try {
-      const result = await unitsService.delete(parseInt(req.params.id));
+      const result = await unitsService.delete(parseInt(String(req.params.id)));
       apiResponse(res, result);
     } catch (error: any) {
       apiError(res, error.message, 400);

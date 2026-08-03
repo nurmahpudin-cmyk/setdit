@@ -30,7 +30,7 @@ export class PositionsController {
 
   async findById(req: Request, res: Response) {
     try {
-      const position = await positionsService.findById(parseInt(req.params.id));
+      const position = await positionsService.findById(parseInt(String(req.params.id)));
       apiResponse(res, position);
     } catch (error: any) {
       apiError(res, error.message, 404);
@@ -51,7 +51,7 @@ export class PositionsController {
   async update(req: Request, res: Response) {
     try {
       const data = updateSchema.parse(req.body);
-      const position = await positionsService.update(parseInt(req.params.id), data);
+      const position = await positionsService.update(parseInt(String(req.params.id)), data);
       apiResponse(res, position, 'Position updated');
     } catch (error: any) {
       if (error instanceof z.ZodError) apiError(res, 'Validation error', 400, error.errors);
@@ -61,7 +61,7 @@ export class PositionsController {
 
   async delete(req: Request, res: Response) {
     try {
-      const result = await positionsService.delete(parseInt(req.params.id));
+      const result = await positionsService.delete(parseInt(String(req.params.id)));
       apiResponse(res, result);
     } catch (error: any) {
       apiError(res, error.message, 400);

@@ -52,6 +52,8 @@ export class SkPerhutananService {
     search_field?: string;
     year?: number;
     userId?: number;
+    provinsi?: string;
+    skema?: string;
   }) {
     const page = query.page || 1;
     const limit = query.limit || 10;
@@ -1750,7 +1752,7 @@ Catatan: ${catatanText}`);
 
     const distribution = await Promise.all(
       statuses.map(async (status) => {
-        const count = await prisma.tr_sk_perhutanan.count({ where: { status } });
+        const count = await prisma.tr_sk_perhutanan.count({ where: { status: status as any } });
         return {
           status,
           label: statusLabels[status],

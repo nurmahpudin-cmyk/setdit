@@ -33,7 +33,7 @@ export class PermissionsController {
 
   async findById(req: Request, res: Response) {
     try {
-      const permission = await permissionsService.findById(parseInt(req.params.id));
+      const permission = await permissionsService.findById(parseInt(String(req.params.id)));
       apiResponse(res, permission);
     } catch (error: any) {
       apiError(res, error.message, 404);
@@ -54,7 +54,7 @@ export class PermissionsController {
   async update(req: Request, res: Response) {
     try {
       const data = updateSchema.parse(req.body);
-      const permission = await permissionsService.update(parseInt(req.params.id), data);
+      const permission = await permissionsService.update(parseInt(String(req.params.id)), data);
       apiResponse(res, permission, 'Permission updated');
     } catch (error: any) {
       if (error instanceof z.ZodError) apiError(res, 'Validation error', 400, error.errors);
@@ -64,7 +64,7 @@ export class PermissionsController {
 
   async delete(req: Request, res: Response) {
     try {
-      const result = await permissionsService.delete(parseInt(req.params.id));
+      const result = await permissionsService.delete(parseInt(String(req.params.id)));
       apiResponse(res, result);
     } catch (error: any) {
       apiError(res, error.message, 400);

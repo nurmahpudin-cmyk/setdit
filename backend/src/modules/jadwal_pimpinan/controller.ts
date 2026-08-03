@@ -83,7 +83,7 @@ export class JadwalPimpinanController {
 
   async findById(req: Request, res: Response) {
     try {
-      const jadwal = await jadwalPimpinanService.findById(parseInt(req.params.id));
+      const jadwal = await jadwalPimpinanService.findById(parseInt(String(req.params.id)));
       apiResponse(res, jadwal);
     } catch (error: any) {
       apiError(res, error.message, 404);
@@ -111,7 +111,7 @@ export class JadwalPimpinanController {
   async update(req: Request, res: Response) {
     try {
       const data = updateSchema.parse(req.body);
-      const jadwal = await jadwalPimpinanService.update(parseInt(req.params.id), data);
+      const jadwal = await jadwalPimpinanService.update(parseInt(String(req.params.id)), data as any);
       apiResponse(res, jadwal, 'Jadwal berhasil diperbarui');
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -124,7 +124,7 @@ export class JadwalPimpinanController {
 
   async delete(req: Request, res: Response) {
     try {
-      const result = await jadwalPimpinanService.delete(parseInt(req.params.id));
+      const result = await jadwalPimpinanService.delete(parseInt(String(req.params.id)));
       apiResponse(res, result);
     } catch (error: any) {
       apiError(res, error.message, 400);
@@ -159,7 +159,7 @@ export class JadwalPimpinanController {
   async sendNotificationToPendamping(req: Request, res: Response) {
     try {
       const authReq = req as AuthRequest;
-      const jadwalId = parseInt(req.params.id);
+      const jadwalId = parseInt(String(req.params.id));
 
       if (isNaN(jadwalId)) {
         apiError(res, 'ID jadwal tidak valid', 400);

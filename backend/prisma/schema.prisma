@@ -64,6 +64,8 @@ model mst_users {
   sk_workflow_assignee      tr_sk_workflow[]        @relation("SKAssignee")
   sk_notification_recipient tr_sk_notification[]    @relation("SKNotificationRecipient")
   sk_catatan                tr_sk_catatan[]
+  disposisi_created         tr_disposisi[]          @relation("DisposisiCreator")
+  disposisi_assignee        tr_disposisi_workflow[]
 
   @@map("mst_users")
 }
@@ -591,4 +593,116 @@ model tr_jabatan_assignment {
 
   @@unique([user_id, jabatan_code])
   @@map("tr_jabatan_assignment")
+}
+
+// ============================================
+// Disposisi / Monitoring Surat Tables
+// ============================================
+
+enum disposisi_status {
+  DRAFT
+  IN_PROGRESS
+  WAITING_DISPOSISI
+  WAITING_TL
+  COMPLETED
+}
+
+// Main Disposisi Document
+model tr_disposisi {
+  id             Int             @id @default(autoincrement())
+  nomor_surat    String?         // Nomor surat masuk (nullable)
+  tanggal_surat  DateTime        // Tanggal surat dari pengirim
+  tanggal_terima DateTime        // Tanggal terima surat di TU Setditjen
+  pengirim       String          // Pengirim surat
+  hal           String           @map("perihal") // Perihal/permasalahan surat
+  unit_tujuan    String          // UKE II tujuan (PEHKT, PKPS, PKTHA, dll)
+  jenis_surat_id String?         // Referensi ke jenis surat @map("jenis_surat_id")
+  status         disposisi_status @default(DRAFT)
+  current_step   Int             @default(1)
+  created_by     Int?
+  created_at     DateTime        @default(now())
+  updated_at     DateTime        @updatedAt
+
+  creator         mst_users?              @relation("DisposisiCreator", fields: [created_by], references: [id])
+  jenis_surat     mst_jenis_surat?        @relation(fields: [jenis_surat_id], references: [id])
+  workflow        tr_disposisi_workflow[]
+  dispositions    tr_disposisi_disposition[]
+  tindak_lanjut  tr_disposisi_tl[]
+
+  @@map("tr_disposisi")
+}
+
+// Workflow Step Tracking
+model tr_disposisi_workflow {
+  id           Int       @id @default(autoincrement())
+  disposisi_id Int
+  step_num     Int       // 1-8
+  step_name    String
+  jabatan_code String    // TU_SETDITJEN, DIRJEN_PS, PIMPINAN_UKE_II
+  unit_code    String?   // Kode unit UKE II (untuk step 4-8)
+  assignee_id  Int?
+  action       String?   // INPUT, DISPOSISI, APPROVE, REJECT, TL, FINISH
+  kesimpulan   String?   // Kesimpulan hasil proses
+  catatan      String?   // Catatan/arahan dari pimpinan
+  is_completed Boolean   @default(false)
+  completed_at DateTime?
+  completed_by Int?
+  created_at   DateTime  @default(now())
+
+  disposisi    tr_disposisi @relation(fields: [disposisi_id], references: [id], onDelete: Cascade)
+  assignee     mst_users?   @relation(fields: [assignee_id], references: [id], map: "disposisi_workflow_assignee_fk")
+
+  @@unique([disposisi_id, step_num])
+  @@map("tr_disposisi_workflow")
+}
+
+// Disposition History - tracks disposisi actions between jabatan
+model tr_disposisi_disposition {
+  id           Int      @id @default(autoincrement())
+  disposisi_id Int
+  step_num     Int
+  from_jabatan String
+  to_jabatan   String
+  catatan      String?
+  created_at   DateTime @default(now())
+  created_by   Int?
+
+  disposisi tr_disposisi @relation(fields: [disposisi_id], references: [id], onDelete: Cascade)
+
+  @@map("tr_disposisi_disposition")
+}
+
+// Tindak Lanjut (TL) Letter Management
+model tr_disposisi_tl {
+  id             Int       @id @default(autoincrement())
+  disposisi_id   Int
+  unit_code      String    // Unit UKE II yang membuat TL
+  concept_letter String?   @db.Text // Konsep surat TL
+  letter_number  String?   // Nomor surat keluar
+  letter_date    DateTime? // Tanggal surat keluar
+  attachment     String?   // Path file lampiran
+  created_by     Int?
+  approved_by    Int?
+  approved_at    DateTime?
+  created_at     DateTime  @default(now())
+
+  disposisi tr_disposisi @relation(fields: [disposisi_id], references: [id], onDelete: Cascade)
+
+  @@map("tr_disposisi_tl")
+}
+
+// ============================================
+// Master Jenis Surat Tables
+// ============================================
+
+model mst_jenis_surat {
+  id              String    @id @default(uuid()) @map("id_jenis_surat")
+  nama_jenis_surat String           @map("nama_jenis_surat")
+  status          Boolean   @default(true) // true = aktif, false = tidak aktif
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  disposisi tr_disposisi[]
+
+  @@map("mst_jenis_surat")
 }

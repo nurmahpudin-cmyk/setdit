@@ -40,7 +40,7 @@ export class MenusController {
 
   async findById(req: Request, res: Response) {
     try {
-      const menu = await menusService.findById(parseInt(req.params.id));
+      const menu = await menusService.findById(parseInt(String(req.params.id)));
       apiResponse(res, menu);
     } catch (error: any) {
       apiError(res, error.message, 404);
@@ -50,7 +50,7 @@ export class MenusController {
   async create(req: Request, res: Response) {
     try {
       const data = createSchema.parse(req.body);
-      const menu = await menusService.create(data);
+      const menu = await menusService.create(data as any);
       apiResponse(res, menu, 'Menu created', 201);
     } catch (error: any) {
       if (error instanceof z.ZodError) apiError(res, 'Validation error', 400, error.errors);
@@ -61,7 +61,7 @@ export class MenusController {
   async update(req: Request, res: Response) {
     try {
       const data = updateSchema.parse(req.body);
-      const menu = await menusService.update(parseInt(req.params.id), data);
+      const menu = await menusService.update(parseInt(String(req.params.id)), data as any);
       apiResponse(res, menu, 'Menu updated');
     } catch (error: any) {
       if (error instanceof z.ZodError) apiError(res, 'Validation error', 400, error.errors);
@@ -71,7 +71,7 @@ export class MenusController {
 
   async delete(req: Request, res: Response) {
     try {
-      const result = await menusService.delete(parseInt(req.params.id));
+      const result = await menusService.delete(parseInt(String(req.params.id)));
       apiResponse(res, result);
     } catch (error: any) {
       apiError(res, error.message, 400);
@@ -81,7 +81,7 @@ export class MenusController {
   async assignPermissions(req: Request, res: Response) {
     try {
       const data = assignPermissionsSchema.parse(req.body);
-      const result = await menusService.assignPermissions(parseInt(req.params.id), data.permission_ids);
+      const result = await menusService.assignPermissions(parseInt(String(req.params.id)), data.permission_ids);
       apiResponse(res, result);
     } catch (error: any) {
       if (error instanceof z.ZodError) apiError(res, 'Validation error', 400, error.errors);
@@ -91,7 +91,7 @@ export class MenusController {
 
   async getPermissions(req: Request, res: Response) {
     try {
-      const permissions = await menusService.getPermissions(parseInt(req.params.id));
+      const permissions = await menusService.getPermissions(parseInt(String(req.params.id)));
       apiResponse(res, permissions);
     } catch (error: any) {
       apiError(res, error.message, 400);

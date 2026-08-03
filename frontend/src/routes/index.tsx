@@ -20,9 +20,11 @@ import ProceedSKPage from '../pages/sk/ProceedSKPage.tsx';
 import ExportSKPage from '../pages/sk/ExportSKPage.tsx';
 import StatsSKPage from '../pages/sk/StatsSKPage.tsx';
 import MonitoringDashboardPage from '../pages/sk/MonitoringDashboardPage.tsx';
+import DisposisiPage from '../pages/disposisi/DisposisiPage.tsx';
 import ProvinsiPage from '../pages/master/ProvinsiPage.tsx';
 import KabkotaPage from '../pages/master/KabkotaPage.tsx';
 import SkemaPage from '../pages/master/SkemaPage.tsx';
+import JenisSuratPage from '../pages/master/JenisSuratPage.tsx';
 import AppLayout from '../pages/layout/AppLayout.tsx';
 
 export function AppRoutes() {
@@ -71,9 +73,11 @@ export function AppRoutes() {
         <Route path="/export-sk" element={<ExportSKPage />} />
         <Route path="/stats-sk" element={<StatsSKPage />} />
         <Route path="/monitoring-dashboard" element={<MonitoringDashboardPage />} />
+        <Route path="/disposisi" element={<DisposisiPage />} />
         <Route path="/master/provinsi" element={<ProvinsiPage />} />
         <Route path="/master/kabkota" element={<KabkotaPage />} />
         <Route path="/master/skema" element={<SkemaPage />} />
+        <Route path="/master/jenis-surat" element={<JenisSuratPage />} />
       </Route>
 
       {/* Default redirect */}
