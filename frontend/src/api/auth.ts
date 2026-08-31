@@ -11,11 +11,13 @@ export interface RegisterData {
   email: string;
   phone: string;
   password: string;
+  position_id: number;
 }
 
 export const authApi = {
   login: (data: LoginData) => api.post('/auth/login', data),
   register: (data: RegisterData) => api.post('/auth/register', data),
+  getPositions: () => api.get('/auth/positions'),
   refresh: (refreshToken: string) => api.post('/auth/refresh', { refreshToken }),
   logout: () => api.post('/auth/logout'),
   getProfile: () => api.get('/auth/profile'),

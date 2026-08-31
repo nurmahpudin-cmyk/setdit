@@ -223,7 +223,7 @@ export default function WhatsAppPage() {
 
       <ConfirmModal title="Hapus Perangkat" open={deleteModalVisible} onCancel={() => setDeleteModalVisible(false)} onOk={handleDeleteSession} confirmLoading={loading} okText="Hapus" okButtonProps={{ danger: true }}>
         <p>Yakin hapus <strong>{selectedSession?.name}</strong>?</p>
-        <p style={{ color: '#ff4d4f' }}>Semua log juga akan dihapus.</p>
+        <p style={{ color: '#8c8c8c' }}>Riwayat log pesan akan tetap disimpan.</p>
       </ConfirmModal>
     </div>
   );

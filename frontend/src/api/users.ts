@@ -33,8 +33,8 @@ export const usersApi = {
   update: (id: number, data: Partial<User> & { role_ids?: number[]; jabatan_code?: string }) =>
     api.put(`/users/${id}`, data),
   delete: (id: number) => api.delete(`/users/${id}`),
-  approve: (id: number, status: 'APPROVED' | 'REJECTED', notes?: string) =>
-    api.put(`/users/${id}/approve`, { status, notes }),
+  approve: (id: number, status: 'APPROVED' | 'REJECTED', notes?: string, position_id?: number) =>
+    api.put(`/users/${id}/approve`, { status, notes, position_id }),
   activate: (id: number) => api.put(`/users/${id}/activate`),
   deactivate: (id: number) => api.put(`/users/${id}/deactivate`),
   assignRoles: (id: number, roleIds: number[]) =>

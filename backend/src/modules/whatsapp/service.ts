@@ -23,14 +23,16 @@ export class WhatsAppService {
     return WhatsAppService.instance;
   }
 
-  // Auto-reconnect all sessions on startup
+  // Auto-reconnect all active sessions on startup
   async initializeSessions() {
     if (this.initialized) return;
     this.initialized = true;
 
     try {
-      const sessions = await prisma.wa_sessions.findMany();
-      console.log(`[WhatsApp] Found ${sessions.length} session(s) to reconnect...`);
+      const sessions = await prisma.wa_sessions.findMany({
+        where: { is_active: true },
+      });
+      console.log(`[WhatsApp] Found ${sessions.length} active session(s) to reconnect...`);
 
       for (const session of sessions) {
         // Run each reconnect in isolated manner - don't let one crash affect others
@@ -121,31 +123,46 @@ export class WhatsAppService {
     const fs = await import('fs');
     const path = await import('path');
 
-    let authStrategy;
+    // Check if session directory is accessible
+    const fullPath = path.join(process.cwd(), `.wwebjs_auth`, `session-${sessionId}`);
+    let sessionExists = false;
     try {
-      authStrategy = new LocalAuth({
-        dataPath: sessionPath,
-        clientId: `session-${sessionId}`,
-      });
+      sessionExists = fs.existsSync(fullPath);
     } catch {
-      // If session data is corrupted, delete and recreate
-      console.log(`[WhatsApp] Removing corrupted session data for ${sessionId}`);
-      const fullPath = path.join(process.cwd(), `.wwebjs_auth`, `session-${sessionId}`);
-      if (fs.existsSync(fullPath)) {
-        fs.rmSync(fullPath, { recursive: true, force: true });
-      }
-      authStrategy = new LocalAuth({
-        dataPath: sessionPath,
-        clientId: `session-${sessionId}`,
-      });
+      // Directory doesn't exist or is not accessible
+    }
+
+    // If session exists and might be locked, skip this session
+    if (sessionExists) {
+      console.log(`[WhatsApp] Session ${sessionId} has existing data, attempting to connect...`);
+    }
+
+    const authStrategy = new LocalAuth({
+      dataPath: sessionPath,
+      clientId: `session-${sessionId}`,
+    });
+
+    // Puppeteer options - tuned for Docker/containers
+    const puppeteerOptions: any = {
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--no-zygote',
+      ],
+    };
+
+    // Use system chromium when running inside Docker (Alpine)
+    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    if (executablePath) {
+      puppeteerOptions.executablePath = executablePath;
     }
 
     const client = new Client({
       authStrategy,
-      puppeteer: {
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      },
+      puppeteer: puppeteerOptions,
     });
 
     client.on('qr', async (qr) => {
@@ -210,9 +227,23 @@ export class WhatsAppService {
     });
 
     clients.set(sessionId, client);
-    client.initialize().catch((err) => {
-      console.error(`[WhatsApp] Failed to initialize client ${sessionId}:`, err);
+
+    // Add unhandled rejection handler for this specific client
+    client.initialize().catch(async (err) => {
+      console.error(`[WhatsApp] Failed to initialize client ${sessionId}:`, err?.message || err);
       clients.delete(sessionId);
+      qrCodes.delete(sessionId);
+
+      // Auto-disable corrupted session in database
+      try {
+        await prisma.wa_sessions.update({
+          where: { id: sessionId },
+          data: { is_active: false },
+        });
+        console.log(`[WhatsApp] Session ${sessionId} disabled due to initialization failure`);
+      } catch (e) {
+        console.error('[WhatsApp] Failed to disable corrupted session:', e);
+      }
     });
   }
 
@@ -231,11 +262,26 @@ export class WhatsAppService {
 
     qrCodes.delete(id);
 
-    // Delete from database
-    await prisma.wa_logs.deleteMany({
+    // Delete session folder from filesystem (auth data)
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+      const sessionPath = path.join(process.cwd(), '.wwebjs_auth', `session-${id}`);
+      if (fs.existsSync(sessionPath)) {
+        fs.rmSync(sessionPath, { recursive: true, force: true });
+        console.log(`[WhatsApp] Session folder removed: ${sessionPath}`);
+      }
+    } catch (e: any) {
+      console.error('[WhatsApp] Failed to remove session folder:', e?.message || e);
+    }
+
+    // Keep history: detach logs from the session instead of deleting them
+    await prisma.wa_logs.updateMany({
       where: { session_id: id },
+      data: { session_id: null },
     });
 
+    // Delete session record from database
     await prisma.wa_sessions.delete({
       where: { id },
     });

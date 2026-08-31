@@ -16,25 +16,34 @@ services:
       - ADMIN_PASSWORD=Admin123!
     volumes:
       - ./backend/uploads:/app/uploads
-      - ./backend/.wwebjs_auth:/app/.wwebjs_auth
-      - ./backend/.wwebjs_cache:/app/.wwebjs_cache
+      - setdit-wa-auth:/app/.wwebjs_auth
+      - setdit-wa-cache:/app/.wwebjs_cache
+    shm_size: '1gb'
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
+    networks:
+      - setdit-network
 
   setdit-frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=http://localhost:5100/api
+        - VITE_API_URL=/api
     container_name: setdit-frontend
     ports:
       - "5101:5101"
-    environment:
-      - API_URL=http://setdit-backend:5100/api
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     depends_on:
       - setdit-backend
+    networks:
+      - setdit-network
+
+networks:
+  setdit-network:
+    driver: bridge
+
+volumes:
+  setdit-wa-auth:
+  setdit-wa-cache:

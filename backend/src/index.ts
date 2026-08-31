@@ -21,11 +21,13 @@ import { jadwalPimpinanRouter } from './modules/jadwal_pimpinan/routes.js';
 import { pegawaiRouter } from './modules/pegawai/routes.js';
 import { skPerhutananRouter } from './modules/sk_perhutanan/routes.js';
 import { disposisiRouter } from './modules/disposisi/routes.js';
+import { disposisiSuratRouter } from './modules/disposisi_surat/routes.js';
 import { jenisSuratRouter } from './modules/jenis_surat/routes.js';
 import { provinsiRouter } from './modules/provinsi/routes.js';
 import { kabkotaRouter } from './modules/kabkota/routes.js';
 import { skemaRouter } from './modules/skema/routes.js';
 import { externalRouter } from './modules/external/proxy.js';
+import { notificationsRouter } from './modules/notifications/routes.js';
 import { cronService } from './services/cron.js';
 
 // Global error handlers - prevent crashes
@@ -47,7 +49,7 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5000'],
+  origin: ['http://localhost:5101', 'http://localhost:5100'],
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -61,18 +63,18 @@ app.use('/uploads', (_req, res, next) => {
   next();
 }, express.static(path.join(process.cwd(), 'uploads')));
 
-// Rate limiting
-app.use('/api/', rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 1000,
-  message: { error: 'Too many requests, please try again later.' },
-}));
+// Rate limiting - disabled for development
+// app.use('/api/', rateLimit({
+//   windowMs: 15 * 60 * 1000,
+//   max: 1000,
+//   message: { error: 'Too many requests, please try again later.' },
+// }));
 
-app.use('/api/auth/', rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: { error: 'Too many authentication attempts, please try again later.' },
-}));
+// app.use('/api/auth/', rateLimit({
+//   windowMs: 15 * 60 * 1000,
+//   max: 100,
+//   message: { error: 'Too many authentication attempts, please try again later.' },
+// }));
 
 // Health check
 app.get('/api/health', (_req, res) => {
@@ -97,11 +99,13 @@ app.use('/api/jadwal-pimpinan', jadwalPimpinanRouter);
 app.use('/api/pegawai', pegawaiRouter);
 app.use('/api/sk-perhutanan', skPerhutananRouter);
 app.use('/api/disposisi', disposisiRouter);
+app.use('/api/disposisi-surat', disposisiSuratRouter);
 app.use('/api/jenis-surat', jenisSuratRouter);
 app.use('/api/provinsi', provinsiRouter);
 app.use('/api/kabkota', kabkotaRouter);
 app.use('/api/skema', skemaRouter);
 app.use('/api/external', externalRouter);
+app.use('/api/notifications', notificationsRouter);
 
 // 404 handler
 app.use((_req, res) => {

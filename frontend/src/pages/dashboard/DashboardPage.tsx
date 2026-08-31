@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Row, Col, Card, Statistic, Typography, Space, List, Tag, Button } from 'antd';
+import { Row, Col, Card, Typography, Space, Tag, Button, List, Avatar } from 'antd';
 import {
   FileTextOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined,
   WarningOutlined,
   ExclamationCircleOutlined,
+  RightOutlined,
+  UserOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../../hooks/useRedux';
@@ -20,9 +22,66 @@ const JABATAN_STEPS: Record<string, { name: string; steps: { num: number; name: 
   ANGGOTA_POKJA_HUKUM: { name: 'Anggota Pokja Hukum', steps: [{ num: 5, name: 'Telaah Anggota', action: 'Telaah draft SK' }, { num: 14, name: 'Finalisasi Anggota', action: 'Finalisasi SK' }] },
   KETUA_POKJA_HUKUM: { name: 'Ketua Pokja Hukum', steps: [{ num: 4, name: 'Distribusi Ke Anggota', action: 'Distribusi ke anggota untuk telaah' }, { num: 6, name: 'Approve Ketua', action: 'Approve hasil telaah' }, { num: 13, name: 'Distribusi SK', action: 'Distribusi SK untuk finalisasi' }, { num: 15, name: 'Approve Finalisasi', action: 'Approve hasil finalisasi' }, { num: 17, name: 'Arsip & Scan', action: 'Arsip & scan final' }] },
   KASUBBAG_TU: { name: 'Kasubbag TU', steps: [{ num: 8, name: 'Kasubbag TU', action: 'Proses disposisi surat' }] },
-  TU_SETDITJEN: { name: 'TU Setditjen', steps: [{ num: 10, name: 'Admin TU Penomoran ND', action: 'Penomoran ND' }, { num: 12, name: 'Admin TU Penomoran SK', action: 'Penomoran SK' }, { num: 17, name: 'Arsip & Scan', action: 'Arsip & scan final' }] },
+  TU_SETDITJEN: { name: 'Admin TU Setditjen', steps: [{ num: 10, name: 'Admin TU Penomoran ND', action: 'Penomoran ND' }, { num: 12, name: 'Admin TU Penomoran SK', action: 'Penomoran SK' }, { num: 17, name: 'Arsip & Scan', action: 'Arsip & scan final' }] },
   DIRJEN_PS: { name: 'Dirjen PS', steps: [{ num: 11, name: 'Dirjen PS', action: 'TTD ND' }] },
 };
+
+const STAT_CARDS = [
+  {
+    key: 'total',
+    title: 'Total SK',
+    icon: <FileTextOutlined />,
+    gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+    bg: '#eff6ff',
+    color: '#2563eb',
+  },
+  {
+    key: 'inProgress',
+    title: 'Sedang Diproses',
+    icon: <ClockCircleOutlined />,
+    gradient: 'linear-gradient(135deg, #f59e0b, #ea580c)',
+    bg: '#fff7ed',
+    color: '#ea580c',
+  },
+  {
+    key: 'waitingRevision',
+    title: 'Menunggu Revisi',
+    icon: <ExclamationCircleOutlined />,
+    gradient: 'linear-gradient(135deg, #eab308, #ca8a04)',
+    bg: '#fefce8',
+    color: '#ca8a04',
+  },
+  {
+    key: 'completed',
+    title: 'Selesai',
+    icon: <CheckCircleOutlined />,
+    gradient: 'linear-gradient(135deg, #22c55e, #16a34a)',
+    bg: '#f0fdf4',
+    color: '#16a34a',
+  },
+  {
+    key: 'overdue',
+    title: 'Lewat Deadline',
+    icon: <WarningOutlined />,
+    gradient: 'linear-gradient(135deg, #f43f5e, #dc2626)',
+    bg: '#fff1f2',
+    color: '#dc2626',
+  },
+];
+
+const iconBadge = (gradient: string): React.CSSProperties => ({
+  width: 48,
+  height: 48,
+  borderRadius: 14,
+  background: gradient,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: '#fff',
+  fontSize: 22,
+  flexShrink: 0,
+  boxShadow: '0 6px 14px rgba(0,0,0,0.12)',
+});
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -78,82 +137,95 @@ export default function DashboardPage() {
     return currentStepInfo || { name: `Step ${currentStep}`, action: '-' };
   };
 
+  const hour = new Date().getHours();
+  const greeting = hour < 11 ? 'Selamat pagi' : hour < 15 ? 'Selamat siang' : hour < 18 ? 'Selamat sore' : 'Selamat malam';
+
   return (
     <div>
-      <Title level={4} style={{ marginBottom: 24 }}>Dashboard</Title>
+      {/* Welcome Header */}
+      <div
+        style={{
+          borderRadius: 16,
+          padding: '28px 32px',
+          marginBottom: 24,
+          background: 'linear-gradient(120deg, #0f766e 0%, #0d9488 55%, #14b8a6 100%)',
+          color: '#fff',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        <div style={{ position: 'absolute', width: 300, height: 300, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', top: -140, right: -60 }} />
+        <div style={{ position: 'absolute', width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', bottom: -80, right: 200 }} />
 
-      {/* Info Jabatan User */}
-      <Card style={{ marginBottom: 24, borderRadius: 12, background: '#f6ffed' }}>
-        <Space direction="vertical" size={4} style={{ width: '100%' }}>
-          <Text strong style={{ fontSize: 16 }}>Jabatan Anda:</Text>
-          <Space wrap>
-            {userJabatanCodes.map((jabatanCode: string) => {
-              const info = getJabatanInfo(jabatanCode);
-              return (
-                <Tag key={jabatanCode} color="green" style={{ fontSize: 14, padding: '4px 12px' }}>
-                  {info.name}
-                </Tag>
-              );
-            })}
-          </Space>
-          <Text type="secondary" style={{ marginTop: 8 }}>
-            {user?.fullname} - Anda memiliki {pendingList.length} tugas yang menunggu
-          </Text>
-        </Space>
-      </Card>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+          <Avatar
+            size={64}
+            style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.4)', fontSize: 26, fontWeight: 700, flexShrink: 0 }}
+          >
+            {user?.fullname?.charAt(0).toUpperCase() || <UserOutlined />}
+          </Avatar>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14 }}>
+              {greeting},
+            </Text>
+            <Title style={{ color: '#fff', margin: 0, fontSize: 26, fontWeight: 700 }}>
+              {user?.fullname || 'Pengguna'}
+            </Title>
+            <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {userJabatanCodes.map((jabatanCode: string) => (
+                <span
+                  key={jabatanCode}
+                  style={{
+                    background: 'rgba(255,255,255,0.18)',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    borderRadius: 999,
+                    padding: '3px 14px',
+                    fontSize: 13,
+                    fontWeight: 500,
+                  }}
+                >
+                  {getJabatanInfo(jabatanCode).name}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div
+            style={{
+              background: 'rgba(255,255,255,0.15)',
+              border: '1px solid rgba(255,255,255,0.28)',
+              borderRadius: 14,
+              padding: '14px 22px',
+              textAlign: 'center',
+              backdropFilter: 'blur(4px)',
+            }}
+          >
+            <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1 }}>{pendingList.length}</div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>Tugas menunggu</div>
+          </div>
+        </div>
+      </div>
 
       {/* Statistik SK */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={12} sm={6}>
-          <Card loading={loading} style={{ borderRadius: 12, background: '#e6f4ff' }}>
-            <Statistic
-              valueStyle={{ fontSize: 28, fontWeight: 700 }}
-              value={stats.total}
-              title="Total SK"
-              prefix={<FileTextOutlined style={{ color: '#1890ff' }} />}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card loading={loading} style={{ borderRadius: 12, background: '#fff7e6' }}>
-            <Statistic
-              valueStyle={{ fontSize: 28, fontWeight: 700 }}
-              value={stats.inProgress}
-              title="Sedang Diproses"
-              prefix={<ClockCircleOutlined style={{ color: '#fa8c16' }} />}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card loading={loading} style={{ borderRadius: 12, background: '#fffbe6' }}>
-            <Statistic
-              valueStyle={{ fontSize: 28, fontWeight: 700 }}
-              value={stats.waitingRevision}
-              title="Menunggu Revisi"
-              prefix={<WarningOutlined style={{ color: '#faad14' }} />}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card loading={loading} style={{ borderRadius: 12, background: '#f6ffed' }}>
-            <Statistic
-              valueStyle={{ fontSize: 28, fontWeight: 700 }}
-              value={stats.completed}
-              title="Selesai"
-              prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card loading={loading} style={{ borderRadius: 12, background: '#fff2f0' }}>
-            <Statistic
-              valueStyle={{ fontSize: 28, fontWeight: 700 }}
-              value={stats.overdue}
-              title="Lewat Deadline"
-              prefix={<WarningOutlined style={{ color: '#ff4d4f' }} />}
-            />
-          </Card>
-        </Col>
+        {STAT_CARDS.map((s) => (
+          <Col xs={12} md={8} lg={Math.floor(24 / Math.min(STAT_CARDS.length, 5)) === 4 ? 4 : 4} key={s.key}>
+            <Card
+              loading={loading}
+              style={{ borderRadius: 16, border: 'none', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}
+              styles={{ body: { padding: 20 } }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={iconBadge(s.gradient)}>{s.icon}</div>
+                <div>
+                  <Text type="secondary" style={{ fontSize: 13 }}>{s.title}</Text>
+                  <div style={{ fontSize: 28, fontWeight: 800, lineHeight: 1.15, color: s.color }}>
+                    {stats[s.key as keyof typeof stats]}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </Col>
+        ))}
       </Row>
 
       {/* Daftar Tugas per Jabatan */}
@@ -168,13 +240,13 @@ export default function DashboardPage() {
             key={jabatanCode}
             title={
               <Space>
-                <span>{info.name}</span>
-                <Tag color="blue">{tugasJabatan.length} tugas</Tag>
+                <span style={{ fontWeight: 700 }}>{info.name}</span>
+                <Tag color="teal" style={{ borderRadius: 999, padding: '0 10px' }}>{tugasJabatan.length} tugas</Tag>
               </Space>
             }
-            style={{ marginBottom: 16, borderRadius: 12 }}
+            style={{ marginBottom: 16, borderRadius: 16, border: 'none', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}
             extra={
-              <Button type="link" onClick={() => navigate('/sk-perhutanan')}>
+              <Button type="link" onClick={() => navigate('/sk-perhutanan')} icon={<RightOutlined />}>
                 Lihat Semua
               </Button>
             }
@@ -193,6 +265,7 @@ export default function DashboardPage() {
                         type="primary"
                         size="small"
                         onClick={() => navigate(`/sk-perhutanan?detail=${sk.id}`)}
+                        style={{ borderRadius: 8 }}
                       >
                         Proses
                       </Button>
@@ -200,23 +273,31 @@ export default function DashboardPage() {
                   >
                     <List.Item.Meta
                       avatar={
-                        isOverdue
-                          ? <WarningOutlined style={{ fontSize: 24, color: '#ff4d4f' }} />
-                          : <ExclamationCircleOutlined style={{ fontSize: 24, color: '#fa8c16' }} />
+                        <div
+                          style={{
+                            ...iconBadge(isOverdue ? 'linear-gradient(135deg, #f43f5e, #dc2626)' : 'linear-gradient(135deg, #f59e0b, #ea580c)'),
+                            width: 40,
+                            height: 40,
+                            borderRadius: 12,
+                            fontSize: 18,
+                          }}
+                        >
+                          {isOverdue ? <WarningOutlined /> : <ExclamationCircleOutlined />}
+                        </div>
                       }
                       title={
-                        <Space>
+                        <Space wrap>
                           <Text strong>{sk.perihal || 'Tanpa Perihal'}</Text>
-                          {isOverdue && <Tag color="red">LEWAT DEADLINE</Tag>}
+                          {isOverdue && <Tag color="red" style={{ borderRadius: 999 }}>LEWAT DEADLINE</Tag>}
                         </Space>
                       }
                       description={
                         <Space direction="vertical" size={0}>
                           <Text type="secondary">
-                            <strong>{stepInfo.name}</strong> - {stepInfo.action}
+                            <strong>{stepInfo.name}</strong> — {stepInfo.action}
                           </Text>
                           <Text type="secondary" style={{ fontSize: 12 }}>
-                            No. Surat: {sk.nomor_surat || '-'} | Deadline: {new Date(sk.tanggal_deadline).toLocaleDateString('id-ID')}
+                            No. Surat: {sk.nomor_surat || '-'} · Deadline: {new Date(sk.tanggal_deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                           </Text>
                         </Space>
                       }
@@ -232,9 +313,24 @@ export default function DashboardPage() {
 
       {/* Jika tidak ada tugas */}
       {pendingList.length === 0 && !loading && (
-        <Card style={{ borderRadius: 12, textAlign: 'center', padding: 40 }}>
-          <CheckCircleOutlined style={{ fontSize: 48, color: '#52c41a', marginBottom: 16 }} />
-          <Title level={4}>Semua Tugas Selesai!</Title>
+        <Card style={{ borderRadius: 16, border: 'none', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', textAlign: 'center', padding: 40 }}>
+          <div
+            style={{
+              width: 80,
+              height: 80,
+              borderRadius: '50%',
+              background: '#f0fdf4',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px',
+              fontSize: 36,
+              color: '#16a34a',
+            }}
+          >
+            <CheckCircleOutlined />
+          </div>
+          <Title level={4} style={{ marginBottom: 4 }}>Semua Tugas Selesai!</Title>
           <Text type="secondary">Tidak ada SK yang menunggu proses untuk jabatan Anda saat ini.</Text>
         </Card>
       )}

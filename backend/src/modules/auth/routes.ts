@@ -6,6 +6,18 @@ const router = Router();
 
 /**
  * @swagger
+ * /api/auth/positions:
+ *   get:
+ *     tags: [Auth]
+ *     summary: Get list of positions for registration
+ *     responses:
+ *       200:
+ *         description: List of positions
+ */
+router.get('/positions', authController.getPositions.bind(authController));
+
+/**
+ * @swagger
  * /api/auth/register:
  *   post:
  *     tags: [Auth]

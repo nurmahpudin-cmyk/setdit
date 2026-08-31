@@ -1,6 +1,8 @@
 import { prisma } from '../../config/database.js';
 import { hashPassword } from '../../utils/index.js';
 import type { AuthRequest } from '../../middleware/auth.js';
+import { whatsappService } from '../whatsapp/service.js';
+import { notificationsService } from '../notifications/service.js';
 
 export class UsersService {
   async findAll(query: {
@@ -231,9 +233,41 @@ export class UsersService {
     return { message: 'User deleted successfully' };
   }
 
-  async approve(id: number, approverId: number, status: 'APPROVED' | 'REJECTED', notes?: string) {
+  async approve(id: number, approverId: number, status: 'APPROVED' | 'REJECTED', notes?: string, position_id?: number) {
     const user = await prisma.mst_users.findUnique({ where: { id, deleted_at: null } });
     if (!user) throw new Error('User not found');
+
+    // If approving and a new position is provided, reassign position + role + jabatan
+    let positionName = '';
+    if (status === 'APPROVED' && position_id) {
+      const position = await prisma.mst_positions.findUnique({ where: { id: position_id } });
+      if (!position) throw new Error('Posisi/jabatan tidak ditemukan');
+      positionName = position.name;
+
+      // Update position
+      await prisma.mst_users.update({
+        where: { id },
+        data: { position_id: position.id },
+      });
+
+      // Reassign role based on new position
+      await prisma.tr_user_roles.deleteMany({ where: { user_id: id } });
+      if (position.role_id) {
+        await prisma.tr_user_roles.create({
+          data: { user_id: id, role_id: position.role_id },
+        });
+      }
+
+      // Reassign jabatan_code based on new position
+      await prisma.tr_jabatan_assignment.deleteMany({ where: { user_id: id } });
+      await prisma.tr_jabatan_assignment.create({
+        data: {
+          user_id: id,
+          jabatan_code: position.code,
+          is_active: true,
+        },
+      });
+    }
 
     await prisma.tr_user_approval.updateMany({
       where: { user_id: id, status: 'PENDING' },
@@ -243,13 +277,49 @@ export class UsersService {
     if (status === 'APPROVED') {
       await prisma.mst_users.update({
         where: { id },
-        data: { status: 'ACTIVE' },
+        data: { status: 'ACTIVE', is_verified: true },
       });
     } else {
       await prisma.mst_users.update({
         where: { id },
         data: { status: 'REJECTED' },
       });
+    }
+
+    // Notify user via WhatsApp
+    try {
+      const sessions = await prisma.wa_sessions.findFirst({
+        where: { is_active: true },
+        orderBy: { created_at: 'desc' },
+      });
+      if (sessions && user.phone) {
+        const message =
+          status === 'APPROVED'
+            ? `Halo ${user.fullname}!\n\nPendaftaran akun Anda pada sistem telah *DISETUJUI* oleh admin.\n\nPosisi Anda: *${positionName || '-'}*\n\nAnda sekarang dapat login menggunakan username/email dan password Anda.`
+            : `Halo ${user.fullname}!\n\nMohon maaf, pendaftaran akun Anda *DITOLAK* oleh admin.\n${notes ? `\nAlasan: ${notes}` : ''}`;
+        await whatsappService.sendMessage(sessions.id, user.phone, message, approverId);
+      }
+    } catch (err: any) {
+      console.error('[Approve] WhatsApp notify error:', err?.message || err);
+    }
+
+    // In-app notification for the user
+    if (status === 'APPROVED') {
+      await notificationsService.create(
+        id,
+        'APPROVAL',
+        'Pendaftaran Disetujui',
+        `Akun Anda telah disetujui oleh admin${positionName ? `. Posisi Anda: ${positionName}` : ''}. Selamat datang!`,
+        '/dashboard'
+      );
+    } else {
+      await notificationsService.create(
+        id,
+        'REJECTION',
+        'Pendaftaran Ditolak',
+        `Pendaftaran Anda ditolak oleh admin.${notes ? ` Alasan: ${notes}` : ''}`,
+        undefined
+      );
     }
 
     return { message: `User ${status.toLowerCase()}` };

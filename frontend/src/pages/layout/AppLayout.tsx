@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Layout, Menu, Avatar, Dropdown, Drawer } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Drawer, Button, Badge, Tooltip, Popover, List, Tag, Empty, Space, Typography } from 'antd';
 import {
   DashboardOutlined,
   UserOutlined,
@@ -30,6 +30,7 @@ import {
   CustomerServiceOutlined,
   SearchOutlined,
   BarChartOutlined,
+  BellOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../hooks/useRedux';
@@ -37,6 +38,9 @@ import { logout } from '../../store/authSlice';
 import { menusApi, Menu as MenuItem } from '../../api/menus';
 import { authApi } from '../../api/auth';
 import { settingsApi, Settings } from '../../api/settings';
+import { notificationsApi, Notification } from '../../api/notifications';
+
+const { Text } = Typography;
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -55,6 +59,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/proceed-sk': 'Pencarian Proses SK',
   '/stats-sk': 'Statistik SK',
   '/monitoring-dashboard': 'Monitoring SK',
+  '/disposisi-surat': 'Disposisi Surat',
   '/master/provinsi': 'Master Provinsi',
   '/master/kabkota': 'Master Kabupaten/Kota',
   '/master/skema': 'Master Skema',
@@ -128,6 +133,8 @@ export default function AppLayout() {
   const [dynamicMenuItems, setDynamicMenuItems] = useState<any[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
@@ -179,6 +186,39 @@ export default function AppLayout() {
   useEffect(() => { fetchSettings(); }, []);
   useEffect(() => { fetchVisibleMenus(); }, []);
 
+  const fetchNotifications = async () => {
+    try {
+      const res = await notificationsApi.getAll({ page: 1, limit: 10 });
+      setNotifications(res.data.data?.items || []);
+      setUnreadCount(res.data.data?.unread_count || 0);
+    } catch { /* ignore - non-authenticated or no access */ }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 30000); // poll every 30s
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleNotificationClick = async (n: Notification) => {
+    if (!n.is_read) {
+      try {
+        await notificationsApi.markRead(n.id);
+        setUnreadCount((c) => Math.max(0, c - 1));
+        setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, is_read: true } : x)));
+      } catch { /* ignore */ }
+    }
+    if (n.link) navigate(n.link);
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await notificationsApi.markAllRead();
+      setUnreadCount(0);
+      setNotifications((prev) => prev.map((x) => ({ ...x, is_read: true })));
+    } catch { /* ignore */ }
+  };
+
   // Set document.title based on current route
   useEffect(() => {
     const pageTitle = PAGE_TITLES[location.pathname];
@@ -210,9 +250,9 @@ export default function AppLayout() {
         trigger={null}
         collapsible
         collapsed={collapsed}
+        theme="dark"
         style={{
-          background: '#fff',
-          borderRight: '1px solid #f0f0f0',
+          background: 'linear-gradient(180deg, #0c3835 0%, #0a2e2b 100%)',
           position: 'fixed',
           height: '100vh',
           left: 0,
@@ -231,7 +271,7 @@ export default function AppLayout() {
             alignItems: 'center',
             justifyContent: collapsed ? 'center' : 'flex-start',
             padding: collapsed ? 0 : '0 16px',
-            borderBottom: '1px solid #f0f0f0',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
           }}
         >
           {settings?.logo ? (
@@ -243,24 +283,25 @@ export default function AppLayout() {
           ) : (
             <div
               style={{
-                width: 32,
-                height: 32,
-                background: '#14b8a6',
-                borderRadius: 6,
+                width: 36,
+                height: 36,
+                background: 'linear-gradient(135deg, #14b8a6, #0d9488)',
+                borderRadius: 10,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: '#fff',
                 fontWeight: 700,
-                fontSize: 14,
+                fontSize: 15,
                 flexShrink: 0,
+                boxShadow: '0 4px 10px rgba(13,148,136,0.4)',
               }}
             >
               {settings?.logo_initial || settings?.app_name?.charAt(0) || 'S'}
             </div>
           )}
           {!collapsed && (
-            <span style={{ marginLeft: 12, fontWeight: 700, fontSize: 16, color: '#1a1a1a' }}>
+            <span style={{ marginLeft: 12, fontWeight: 700, fontSize: 16, color: '#fff', letterSpacing: 0.3 }}>
               {settings?.app_name || 'SETDIT'}
             </span>
           )}
@@ -268,13 +309,14 @@ export default function AppLayout() {
 
         <Menu
           mode="inline"
+          theme="dark"
           selectedKeys={[location.pathname]}
           items={dynamicMenuItems.length > 0 ? dynamicMenuItems : menuItems}
           onClick={({ key }) => {
             navigate(key);
             if (isMobile) setDrawerOpen(false);
           }}
-          style={{ border: 'none', padding: '8px 0' }}
+          style={{ border: 'none', padding: '12px 0', background: 'transparent' }}
         />
       </Sider>
 
@@ -287,16 +329,16 @@ export default function AppLayout() {
             ) : (
               <div
                 style={{
-                  width: 28,
-                  height: 28,
-                  background: '#14b8a6',
-                  borderRadius: 6,
+                  width: 32,
+                  height: 32,
+                  background: 'linear-gradient(135deg, #14b8a6, #0d9488)',
+                  borderRadius: 9,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   color: '#fff',
                   fontWeight: 700,
-                  fontSize: 12,
+                  fontSize: 13,
                 }}
               >
                 {settings?.logo_initial || settings?.app_name?.charAt(0) || 'S'}
@@ -319,7 +361,7 @@ export default function AppLayout() {
             navigate(key);
             setDrawerOpen(false);
           }}
-          style={{ border: 'none', padding: '8px 0' }}
+          style={{ border: 'none', padding: '12px 0' }}
         />
       </Drawer>
 
@@ -341,29 +383,88 @@ export default function AppLayout() {
             zIndex: 100,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
             {/* Mobile hamburger menu */}
             {isMobile ? (
-              <div
+              <Button
+                type="text"
                 onClick={() => setDrawerOpen(true)}
-                style={{ cursor: 'pointer', fontSize: 20, padding: '0 8px' }}
-              >
-                <MenuOutlined />
-              </div>
+                icon={<MenuOutlined style={{ fontSize: 18 }} />}
+              />
             ) : (
-              <div
+              <Button
+                type="text"
                 onClick={() => setCollapsed(!collapsed)}
-                style={{ cursor: 'pointer', fontSize: 18, padding: '0 8px' }}
-              >
-                {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-              </div>
+                icon={collapsed ? <MenuUnfoldOutlined style={{ fontSize: 17 }} /> : <MenuFoldOutlined style={{ fontSize: 17 }} />}
+              />
+            )}
+            {!isMobile && (
+              <span style={{ fontSize: 15, fontWeight: 600, color: '#1f2937', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {PAGE_TITLES[location.pathname] || 'Dashboard'}
+              </span>
             )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Popover
+              trigger="click"
+              placement="bottomRight"
+              title={
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+                  <span>Notifikasi</span>
+                  {unreadCount > 0 && (
+                    <Button type="link" size="small" onClick={handleMarkAllRead}>
+                      Tandai semua dibaca
+                    </Button>
+                  )}
+                </div>
+              }
+              content={
+                notifications.length === 0 ? (
+                  <Empty description="Tidak ada notifikasi" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                ) : (
+                  <List
+                    style={{ width: 340, maxHeight: 400, overflow: 'auto' }}
+                    dataSource={notifications}
+                    renderItem={(n: Notification) => (
+                      <List.Item
+                        onClick={() => handleNotificationClick(n)}
+                        style={{ cursor: 'pointer', background: n.is_read ? 'transparent' : '#f0fdfa', borderRadius: 8, padding: '8px 12px' }}
+                      >
+                        <List.Item.Meta
+                          title={
+                            <Space size={8}>
+                              <Text strong style={{ fontSize: 14 }}>{n.title}</Text>
+                              {!n.is_read && <Badge dot color="red" />}
+                            </Space>
+                          }
+                          description={
+                            <div>
+                              <div style={{ fontSize: 13, color: '#4b5563' }}>{n.message}</div>
+                              <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+                                {new Date(n.created_at).toLocaleString('id-ID')}
+                              </div>
+                            </div>
+                          }
+                        />
+                      </List.Item>
+                    )}
+                  />
+                )
+              }
+            >
+              <Tooltip title="Notifikasi">
+                <div style={{ cursor: 'pointer', padding: '4px 8px', borderRadius: 8, display: 'flex', alignItems: 'center' }}>
+                  <Badge count={unreadCount} size="small">
+                    <BellOutlined style={{ fontSize: 18, color: '#1f2937' }} />
+                  </Badge>
+                </div>
+              </Tooltip>
+            </Popover>
+
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                <Avatar style={{ background: '#14b8a6' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '4px 10px', borderRadius: 999, transition: 'background 0.2s' }} className="user-chip">
+                <Avatar style={{ background: 'linear-gradient(135deg, #14b8a6, #0d9488)', fontWeight: 600 }}>
                   {user?.fullname?.charAt(0).toUpperCase() || 'U'}
                 </Avatar>
                 <span style={{ fontWeight: 500 }} className="hidden-mobile">{user?.fullname || 'User'}</span>

@@ -66,6 +66,9 @@ model mst_users {
   sk_catatan                tr_sk_catatan[]
   disposisi_created         tr_disposisi[]          @relation("DisposisiCreator")
   disposisi_assignee        tr_disposisi_workflow[]
+  disposisi_surat_access   tr_disposisi_surat_access[]
+  disposisi_surat_created   tr_disposisi_surat[]    @relation("DisposisiSuratCreator")
+  notifications             mst_notifications[]
 
   @@map("mst_users")
 }
@@ -263,6 +266,26 @@ enum approval_status {
   PENDING
   APPROVED
   REJECTED
+}
+
+// ============================================
+// Notifications (in-app)
+// ============================================
+
+model mst_notifications {
+  id         Int      @id @default(autoincrement())
+  user_id    Int      // Recipient
+  type       String   // REGISTRATION, APPROVAL, REJECTION, OTP, etc.
+  title      String
+  message    String
+  link       String?  // Optional route to navigate on click
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  user mst_users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("mst_notifications")
 }
 
 // ============================================
@@ -689,6 +712,59 @@ model tr_disposisi_tl {
   disposisi tr_disposisi @relation(fields: [disposisi_id], references: [id], onDelete: Cascade)
 
   @@map("tr_disposisi_tl")
+}
+
+// ============================================
+// Disposisi Surat Tables (Dirjen to Units)
+// ============================================
+
+enum disposisi_surat_status {
+  PROSES_TINDAK_LANJUT
+  TINDAK_LANJUT_SELESAI
+}
+
+enum disposisi_role {
+  INPUTER
+  DISPOSITOR
+  ADMIN
+}
+
+// Mapping: user punya akses ke unit mana untuk disposisi surat
+model tr_disposisi_surat_access {
+  id              Int              @id @default(autoincrement())
+  user_id         Int
+  unit_code       String           // SESDIT_PS, DIT_PKPS, DIT_PKTHA, DIT_PUPS, DIT_PPS
+  role            disposisi_role   @default(INPUTER)
+  created_at      DateTime         @default(now())
+
+  user mst_users @relation(fields: [user_id], references: [id])
+
+  @@unique([user_id, unit_code])
+  @@map("tr_disposisi_surat_access")
+}
+
+// Main Disposisi Surat Document
+model tr_disposisi_surat {
+  id                  Int                      @id @default(autoincrement())
+  nomor_surat         String?                  @map("nomor_surat")
+  tanggal_surat       DateTime                 @map("tanggal_surat")
+  hal                 String                   // Perihal surat
+  jenis_surat         String                   @map("jenis_surat") // "Undangan" | "Surat Dinas"
+  disposisi           String                   // 18 options
+  isi_disposisi       String?                  @db.Text @map("isi_disposisi")
+  tujuan_disposisi    String                   @map("tujuan_disposisi") // Sesdit PS, Dit. PKPS, dll
+  unit_code          String                   @map("unit_code") // SESDIT_PS, DIT_PKPS, dll
+  tanggal_disposisi   DateTime                 @map("tanggal_disposisi")
+  tanggal_deadline    DateTime?                @map("tanggal_deadline")
+  pic                String                   // Lucky, Nabila, Nurlia, Tommy, Dian, Ika, Rizma
+  status_tl          disposisi_surat_status  @default(PROSES_TINDAK_LANJUT) @map("status_tl")
+  created_by         Int?                     @map("created_by")
+  created_at         DateTime                 @default(now()) @map("created_at")
+  updated_at         DateTime                 @updatedAt @map("updated_at")
+
+  creator mst_users? @relation(fields: [created_by], references: [id], name: "DisposisiSuratCreator")
+
+  @@map("tr_disposisi_surat")
 }
 
 // ============================================

@@ -30,6 +30,7 @@ const assignRolesSchema = z.object({
 const approveSchema = z.object({
   status: z.enum(['APPROVED', 'REJECTED']),
   notes: z.string().optional(),
+  position_id: z.number().int().positive().optional(),
 });
 
 export class UsersController {
@@ -104,7 +105,8 @@ export class UsersController {
         parseInt(String(req.params.id)),
         authReq.user.id,
         data.status,
-        data.notes
+        data.notes,
+        data.position_id
       );
       apiResponse(res, result);
     } catch (error: any) {

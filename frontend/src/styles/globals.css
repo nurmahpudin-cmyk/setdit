@@ -240,3 +240,64 @@ html {
     margin-left: 0 !important;
   }
 }
+
+/* ---- Global polish ---- */
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 118, 110, 0.25);
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 118, 110, 0.45);
+}
+
+/* User chip in header */
+.user-chip:hover {
+  background: rgba(15, 118, 110, 0.08);
+}
+
+/* Card hover lift */
+.ant-card {
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.ant-card:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Dark sidebar menu active state */
+.ant-layout-sider .ant-menu-dark .ant-menu-item-selected {
+  background: linear-gradient(90deg, rgba(20, 184, 166, 0.35), rgba(20, 184, 166, 0.12)) !important;
+  box-shadow: inset 3px 0 0 #14b8a6;
+}
+
+.ant-layout-sider .ant-menu-dark .ant-menu-item {
+  border-radius: 8px;
+}
+
+/* Smooth page transitions */
+.ant-layout-content {
+  animation: fadeInUp 0.3s ease;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -486,10 +486,10 @@ async function main() {
   // Create default menus
   const menuData = [
     { name: 'Dashboard', path: '/dashboard', module: 'app', icon: 'DashboardOutlined', order_num: 1 },
-    { name: 'SK Perhutanan', path: '/sk-perhutanan', module: 'app', icon: 'FileTextOutlined', order_num: 2 },
-    { name: 'Provinsi', path: '/master/provinsi', module: 'master', icon: 'FileTextOutlined', order_num: 3 },
-    { name: 'Kabupaten/Kota', path: '/master/kabkota', module: 'master', icon: 'FileTextOutlined', order_num: 4 },
-    { name: 'Skema', path: '/master/skema', module: 'master', icon: 'FileTextOutlined', order_num: 5 },
+    { name: 'Disposisi Surat', path: '/disposisi-surat', module: 'app', icon: 'FileTextOutlined', order_num: 2 },
+    { name: 'Provinsi', path: '/master/provinsi', module: 'master', icon: 'FileTextOutlined', order_num: 4 },
+    { name: 'Kabupaten/Kota', path: '/master/kabkota', module: 'master', icon: 'FileTextOutlined', order_num: 5 },
+    { name: 'Skema', path: '/master/skema', module: 'master', icon: 'FileTextOutlined', order_num: 6 },
     { name: 'Jadwal Pimpinan', path: '/jadwal-pimpinan', module: 'app', icon: 'CalendarOutlined', order_num: 7 },
     { name: 'Data Pegawai', path: '/pegawai', module: 'app', icon: 'UsergroupAddOutlined', order_num: 8 },
     { name: 'Pengguna', path: '/users', module: 'admin', icon: 'UserOutlined', order_num: 10 },

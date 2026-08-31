@@ -9,6 +9,7 @@ const registerSchema = z.object({
   email: z.string().email(),
   phone: z.string().min(10).max(20),
   password: z.string().min(8).regex(/^(?=.*[a-zA-Z])(?=.*[0-9])/),
+  position_id: z.number().int().positive(),
 });
 
 const loginSchema = z.object({
@@ -28,6 +29,15 @@ const resetPasswordSchema = z.object({
 });
 
 export class AuthController {
+  async getPositions(_req: Request, res: Response) {
+    try {
+      const positions = await authService.getRegistrationPositions();
+      apiResponse(res, positions);
+    } catch (error: any) {
+      apiError(res, error.message, 400);
+    }
+  }
+
   async register(req: Request, res: Response) {
     try {
       const data = registerSchema.parse(req.body);

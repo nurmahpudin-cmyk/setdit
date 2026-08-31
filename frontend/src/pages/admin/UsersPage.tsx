@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import {
   Table, Card, Button, Input, Tag, Modal, Form, Select, message,
-  Typography, Grid, Dropdown
+  Typography, Grid, Dropdown, Tabs, Space, Badge, Descriptions
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, CheckCircleOutlined, MoreOutlined } from '@ant-design/icons';
+import {
+  PlusOutlined, EditOutlined, DeleteOutlined, CheckCircleOutlined,
+  MoreOutlined, CheckOutlined, CloseOutlined, EyeOutlined
+} from '@ant-design/icons';
 import { usersApi, User } from '../../api/users';
 import { rolesApi } from '../../api/roles';
-import { unitsApi } from '../../api/settings';
+import { unitsApi, positionsApi } from '../../api/settings';
 
 const { useBreakpoint } = Grid;
 
@@ -35,34 +38,53 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0 });
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [pendingCount, setPendingCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [roles, setRoles] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
+  const [positions, setPositions] = useState<any[]>([]);
+  const [reviewUser, setReviewUser] = useState<User | null>(null);
+  const [reviewPositionId, setReviewPositionId] = useState<number | undefined>();
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [rejectUser, setRejectUser] = useState<User | null>(null);
+  const [rejectNotes, setRejectNotes] = useState('');
+  const [rejectSaving, setRejectSaving] = useState(false);
   const [form] = Form.useForm();
   const screens = useBreakpoint();
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await usersApi.getAll({ page: pagination.page, limit: pagination.limit, search });
+      const res = await usersApi.getAll({ page: pagination.page, limit: pagination.limit, search, status: statusFilter || undefined });
       setData(res.data.data);
       setPagination((p) => ({ ...p, total: res.data.pagination.total }));
+      if (statusFilter === 'PENDING') setPendingCount(res.data.pagination.total);
     } catch { message.error('Gagal memuat data'); }
     finally { setLoading(false); }
   };
 
+  const fetchPendingCount = async () => {
+    try {
+      const res = await usersApi.getAll({ page: 1, limit: 1, status: 'PENDING' });
+      setPendingCount(res.data.pagination.total);
+    } catch { /* ignore */ }
+  };
+
   const fetchMeta = async () => {
-    const [r, u] = await Promise.all([
+    const [r, u, p] = await Promise.all([
       rolesApi.getAll().catch(() => ({ data: { data: [] } })),
       unitsApi.getAll().catch(() => ({ data: { data: [] } })),
+      positionsApi.getAll().catch(() => ({ data: { data: [] } })),
     ]);
     setRoles(r.data.data);
     setUnits(u.data.data);
+    setPositions(p.data.data);
   };
 
-  useEffect(() => { fetchData(); }, [pagination.page, search]);
-  useEffect(() => { fetchMeta(); }, []);
+  useEffect(() => { fetchData(); }, [pagination.page, search, statusFilter]);
+  useEffect(() => { fetchMeta(); fetchPendingCount(); }, []);
 
   const handleSave = async (values: any) => {
     try {
@@ -90,12 +112,55 @@ export default function UsersPage() {
     } catch { message.error('Gagal hapus'); }
   };
 
-  const handleApprove = async (id: number, status: 'APPROVED' | 'REJECTED') => {
+  const handleReviewOpen = (record: User) => {
+    setReviewUser(record);
+    setReviewPositionId(record.position?.id);
+  };
+
+  const handleConfirmApprove = async () => {
+    if (!reviewUser) return;
+    setReviewSaving(true);
     try {
-      await usersApi.approve(id, status);
-      message.success(`User ${status.toLowerCase()}`);
+      await usersApi.approve(reviewUser.id, 'APPROVED', undefined, reviewPositionId);
+      message.success('User disetujui');
+      setReviewUser(null);
       fetchData();
-    } catch { message.error('Gagal approve'); }
+      fetchPendingCount();
+    } catch (err: any) {
+      message.error(err.response?.data?.message || 'Gagal menyetujui');
+    } finally {
+      setReviewSaving(false);
+    }
+  };
+
+  const handleRejectOpen = (record: User) => {
+    setRejectUser(record);
+    setRejectNotes('');
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectUser) return;
+    setRejectSaving(true);
+    try {
+      await usersApi.approve(rejectUser.id, 'REJECTED', rejectNotes);
+      message.success('User ditolak');
+      setRejectUser(null);
+      setRejectNotes('');
+      fetchData();
+      fetchPendingCount();
+    } catch (err: any) {
+      message.error(err.response?.data?.message || 'Gagal menolak');
+    } finally {
+      setRejectSaving(false);
+    }
+  };
+
+  const handleActivate = async (id: number) => {
+    try {
+      await usersApi.activate(id);
+      message.success('User diaktifkan');
+      fetchData();
+    } catch { message.error('Gagal aktivasi'); }
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -155,8 +220,22 @@ export default function UsersPage() {
     {
       title: 'Aksi',
       key: 'action',
-      width: screens.xs ? 140 : 180,
+      width: screens.xs ? 150 : 200,
       render: (_: any, record: User) => {
+        // Pending users get direct review/reject buttons
+        if (record.status === 'PENDING') {
+          return (
+            <Space size={4}>
+              <Button size="small" type="primary" icon={<EyeOutlined />} onClick={() => handleReviewOpen(record)}>
+                Review
+              </Button>
+              <Button size="small" danger icon={<CloseOutlined />} onClick={() => handleRejectOpen(record)}>
+                Tolak
+              </Button>
+            </Space>
+          );
+        }
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const items: any[] = [
           { key: 'edit', label: 'Edit', icon: <EditOutlined />, onClick: () => {
@@ -173,11 +252,8 @@ export default function UsersPage() {
           { key: 'delete', label: 'Hapus', icon: <DeleteOutlined />, danger: true, onClick: () => handleDelete(record.id) },
         ];
 
-        if (record.status === 'PENDING') {
-          items.unshift(
-            { key: 'approve', label: 'Approve', icon: <CheckCircleOutlined />, onClick: () => handleApprove(record.id, 'APPROVED') },
-            { key: 'reject', label: 'Tolak', icon: <DeleteOutlined />, danger: true, onClick: () => handleApprove(record.id, 'REJECTED') }
-          );
+        if (record.status === 'INACTIVE') {
+          items.unshift({ key: 'activate', label: 'Aktifkan', icon: <CheckCircleOutlined />, onClick: () => handleActivate(record.id) });
         }
 
         return (
@@ -199,6 +275,24 @@ export default function UsersPage() {
       </div>
 
       <Card>
+        <Tabs
+          activeKey={statusFilter}
+          onChange={(key) => { setStatusFilter(key); setPagination((p) => ({ ...p, page: 1 })); }}
+          items={[
+            { key: '', label: 'Semua' },
+            {
+              key: 'PENDING',
+              label: (
+                <Badge count={pendingCount} size="small" offset={[8, 0]}>
+                  <span style={{ paddingRight: 4 }}>Menunggu Persetujuan</span>
+                </Badge>
+              ),
+            },
+            { key: 'ACTIVE', label: 'Aktif' },
+            { key: 'REJECTED', label: 'Ditolak' },
+            { key: 'INACTIVE', label: 'Nonaktif' },
+          ]}
+        />
         <Input.Search
           placeholder="Cari nama, username, email..."
           style={{ width: 300, marginBottom: 16 }}
@@ -257,6 +351,71 @@ export default function UsersPage() {
             <Select mode="multiple" options={roles.map((r) => ({ label: r.name, value: r.id }))} />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* Review / Approve Modal */}
+      <Modal
+        title="Review Pendaftaran User"
+        open={!!reviewUser}
+        onCancel={() => setReviewUser(null)}
+        onOk={handleConfirmApprove}
+        okText="Setujui"
+        okButtonProps={{ icon: <CheckOutlined />, loading: reviewSaving }}
+        width={520}
+      >
+        {reviewUser && (
+          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <Descriptions
+              column={1}
+              size="small"
+              bordered
+              items={[
+                { key: 'fullname', label: 'Nama Lengkap', children: reviewUser.fullname },
+                { key: 'username', label: 'Username', children: reviewUser.username },
+                { key: 'email', label: 'Email', children: reviewUser.email },
+                { key: 'phone', label: 'No. HP', children: reviewUser.phone },
+              ]}
+            />
+            <div>
+              <Typography.Text strong>Posisi / Jabatan</Typography.Text>
+              <div style={{ marginTop: 4, color: '#94a3b8', fontSize: 12 }}>
+                Klik untuk memindahkan posisi jika user salah memilih.
+              </div>
+              <Select
+                style={{ width: '100%', marginTop: 8 }}
+                value={reviewPositionId}
+                onChange={(v) => setReviewPositionId(v)}
+                options={positions.map((p) => ({ label: p.name, value: p.id }))}
+                showSearch
+                optionFilterProp="label"
+                placeholder="Pilih posisi"
+              />
+            </div>
+          </Space>
+        )}
+      </Modal>
+
+      {/* Reject Modal */}
+      <Modal
+        title="Tolak Pendaftaran"
+        open={!!rejectUser}
+        onCancel={() => setRejectUser(null)}
+        onOk={handleConfirmReject}
+        okText="Tolak"
+        okButtonProps={{ danger: true, loading: rejectSaving }}
+        width={480}
+      >
+        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+          <Typography.Text>
+            Tolak pendaftaran <strong>{rejectUser?.fullname}</strong>?
+          </Typography.Text>
+          <Input.TextArea
+            rows={3}
+            placeholder="Alasan penolakan (opsional, akan dikirim via WhatsApp)"
+            value={rejectNotes}
+            onChange={(e) => setRejectNotes(e.target.value)}
+          />
+        </Space>
       </Modal>
     </div>
   );

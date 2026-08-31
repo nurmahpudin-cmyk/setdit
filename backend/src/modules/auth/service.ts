@@ -10,6 +10,7 @@ import {
 } from '../../utils/index.js';
 import { createAuditLog } from '../../middleware/audit.js';
 import { whatsappService } from '../whatsapp/service.js';
+import { notificationsService } from '../notifications/service.js';
 import NodeCache from 'node-cache';
 import type { AuthRequest } from '../../middleware/auth.js';
 import { randomBytes } from 'crypto';
@@ -24,15 +25,31 @@ export class AuthService {
     email: string;
     phone: string;
     password: string;
+    position_id: number;
   }) {
-    const existingUser = await prisma.mst_users.findFirst({
-      where: {
-        OR: [{ email: data.email }, { username: data.username }, { phone: data.phone }],
-      },
-    });
+    // Check each field individually for specific error messages
+    const [existingEmail, existingUsername, existingPhone] = await Promise.all([
+      prisma.mst_users.findUnique({ where: { email: data.email } }),
+      prisma.mst_users.findUnique({ where: { username: data.username } }),
+      prisma.mst_users.findFirst({ where: { phone: data.phone } }),
+    ]);
 
-    if (existingUser) {
-      throw new Error('User with this email, username, or phone already exists');
+    if (existingEmail) {
+      throw new Error('Email sudah terdaftar. Gunakan email lain.');
+    }
+    if (existingUsername) {
+      throw new Error('Username sudah digunakan. Gunakan username lain.');
+    }
+    if (existingPhone) {
+      throw new Error('Nomor HP sudah terdaftar. Gunakan nomor lain.');
+    }
+
+    // Look up position to derive role & jabatan
+    const position = await prisma.mst_positions.findUnique({
+      where: { id: data.position_id },
+    });
+    if (!position) {
+      throw new Error('Posisi/jabatan tidak ditemukan');
     }
 
     const hashedPassword = await hashPassword(data.password);
@@ -44,8 +61,25 @@ export class AuthService {
         email: data.email,
         phone: data.phone,
         password: hashedPassword,
-        status: 'VERIFIED', // Auto-verify for now (OTP later)
-        is_verified: true,
+        status: 'PENDING', // Wait for admin approval
+        is_verified: false,
+        position_id: position.id,
+      },
+    });
+
+    // Assign role based on position's role_id
+    if (position.role_id) {
+      await prisma.tr_user_roles.create({
+        data: { user_id: user.id, role_id: position.role_id },
+      });
+    }
+
+    // Assign jabatan_code based on position's code
+    await prisma.tr_jabatan_assignment.create({
+      data: {
+        user_id: user.id,
+        jabatan_code: position.code,
+        is_active: true,
       },
     });
 
@@ -58,12 +92,70 @@ export class AuthService {
       },
     });
 
-    const tokens = this.generateTokens(user);
+    // Notify admins about new registration
+    this.notifyAdminsOnRegistration(user, position).catch((err) => {
+      console.error('[Register] Failed to notify admins:', err?.message || err);
+    });
 
     return {
       user: this.sanitizeUser(user),
-      ...tokens,
+      message: 'Pendaftaran berhasil. Akun Anda menunggu persetujuan admin.',
     };
+  }
+
+  private async notifyAdminsOnRegistration(user: any, position: any) {
+    const admins = await prisma.mst_users.findMany({
+      where: {
+        deleted_at: null,
+        status: 'ACTIVE',
+        roles: { some: { role: { is_super_admin: true } } },
+      },
+      select: { id: true, phone: true, fullname: true },
+    });
+
+    const title = 'Pendaftaran User Baru';
+    const body =
+      `${user.fullname} (${user.username}) mendaftar sebagai ${position?.name || '-'} ` +
+      `dan menunggu persetujuan Anda.`;
+
+    for (const admin of admins) {
+      // In-app notification (always)
+      await notificationsService.create(admin.id, 'REGISTRATION', title, body, '/users');
+
+      // WhatsApp notification (best-effort)
+      if (!admin.phone) continue;
+      try {
+        const sessions = await prisma.wa_sessions.findFirst({
+          where: { is_active: true },
+          orderBy: { created_at: 'desc' },
+        });
+        if (!sessions) continue;
+
+        const message =
+          `🔔 *Notifikasi Pendaftaran Baru*\n\n` +
+          `Ada pengguna baru yang mendaftar dan menunggu persetujuan:\n\n` +
+          `👤 Nama: *${user.fullname}*\n` +
+          `🆔 Username: ${user.username}\n` +
+          `📧 Email: ${user.email}\n` +
+          `📱 HP: ${user.phone}\n` +
+          `💼 Posisi: ${position?.name || '-'}\n\n` +
+          `Silakan login ke sistem untuk menyetujui/menolak pendaftaran ini.`;
+
+        await whatsappService.sendMessage(sessions.id, admin.phone, message, admin.id);
+        console.log(`[Register] Admin notification sent to ${admin.phone}`);
+      } catch (err: any) {
+        console.error(`[Register] Failed to notify admin ${admin.phone}:`, err?.message || err);
+      }
+    }
+  }
+
+  async getRegistrationPositions() {
+    const positions = await prisma.mst_positions.findMany({
+      where: { is_active: true },
+      select: { id: true, name: true, code: true },
+      orderBy: { name: 'asc' },
+    });
+    return positions;
   }
 
   async login(data: { login: string; password: string }, req: AuthRequest) {
@@ -81,6 +173,17 @@ export class AuthService {
 
     if (!user) {
       throw new Error('Invalid credentials');
+    }
+
+    // Check account status
+    if (user.status === 'PENDING') {
+      throw new Error('Akun Anda masih menunggu persetujuan admin');
+    }
+    if (user.status === 'REJECTED') {
+      throw new Error('Pendaftaran Anda ditolak oleh admin');
+    }
+    if (user.status === 'INACTIVE') {
+      throw new Error('Akun Anda dinonaktifkan. Hubungi admin.');
     }
 
     // Check lockout

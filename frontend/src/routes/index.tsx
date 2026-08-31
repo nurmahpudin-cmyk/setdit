@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { PrivateRoute } from './PrivateRoute.tsx';
 import { PublicRoute } from './PublicRoute.tsx';
 import LoginPage from '../pages/auth/LoginPage.tsx';
+import RegisterPage from '../pages/auth/RegisterPage.tsx';
 import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage.tsx';
 import DashboardPage from '../pages/dashboard/DashboardPage.tsx';
 import UsersPage from '../pages/admin/UsersPage.tsx';
@@ -21,6 +22,7 @@ import ExportSKPage from '../pages/sk/ExportSKPage.tsx';
 import StatsSKPage from '../pages/sk/StatsSKPage.tsx';
 import MonitoringDashboardPage from '../pages/sk/MonitoringDashboardPage.tsx';
 import DisposisiPage from '../pages/disposisi/DisposisiPage.tsx';
+import DisposisiSuratPage from '../pages/disposisi-surat/DisposisiSuratPage.tsx';
 import ProvinsiPage from '../pages/master/ProvinsiPage.tsx';
 import KabkotaPage from '../pages/master/KabkotaPage.tsx';
 import SkemaPage from '../pages/master/SkemaPage.tsx';
@@ -36,6 +38,14 @@ export function AppRoutes() {
         element={
           <PublicRoute>
             <LoginPage />
+          </PublicRoute>
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          <PublicRoute>
+            <RegisterPage />
           </PublicRoute>
         }
       />
@@ -74,6 +84,7 @@ export function AppRoutes() {
         <Route path="/stats-sk" element={<StatsSKPage />} />
         <Route path="/monitoring-dashboard" element={<MonitoringDashboardPage />} />
         <Route path="/disposisi" element={<DisposisiPage />} />
+        <Route path="/disposisi-surat" element={<DisposisiSuratPage />} />
         <Route path="/master/provinsi" element={<ProvinsiPage />} />
         <Route path="/master/kabkota" element={<KabkotaPage />} />
         <Route path="/master/skema" element={<SkemaPage />} />
