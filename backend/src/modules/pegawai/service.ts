@@ -49,7 +49,15 @@ export class PegawaiService {
     return pegawai;
   }
 
-  async create(data: { nama_lengkap: string; nama_panggilan?: string; nip: string; nomor_wa?: string }) {
+  async create(data: {
+    nama_lengkap: string;
+    nama_panggilan?: string;
+    nip: string;
+    nomor_wa?: string;
+    unit_code?: string;
+    jabatan?: string;
+    is_disposisi_recipient?: boolean;
+  }) {
     const existing = await prisma.mst_pegawai.findFirst({
       where: { OR: [{ nip: data.nip }] },
     });
@@ -61,11 +69,23 @@ export class PegawaiService {
         nama_panggilan: data.nama_panggilan,
         nip: data.nip,
         nomor_wa: data.nomor_wa,
+        unit_code: data.unit_code,
+        jabatan: data.jabatan,
+        is_disposisi_recipient: data.is_disposisi_recipient ?? false,
       },
     });
   }
 
-  async update(id: number, data: { nama_lengkap?: string; nama_panggilan?: string; nip?: string; nomor_wa?: string; is_active?: boolean }) {
+  async update(id: number, data: {
+    nama_lengkap?: string;
+    nama_panggilan?: string;
+    nip?: string;
+    nomor_wa?: string;
+    unit_code?: string;
+    jabatan?: string;
+    is_disposisi_recipient?: boolean;
+    is_active?: boolean;
+  }) {
     const existing = await prisma.mst_pegawai.findUnique({ where: { id } });
     if (!existing) throw new Error('Pegawai tidak ditemukan');
 
@@ -91,7 +111,16 @@ export class PegawaiService {
   async getAll() {
     return prisma.mst_pegawai.findMany({
       where: { is_active: true },
-      select: { id: true, nama_lengkap: true, nama_panggilan: true, nip: true, nomor_wa: true },
+      select: {
+        id: true,
+        nama_lengkap: true,
+        nama_panggilan: true,
+        nip: true,
+        nomor_wa: true,
+        unit_code: true,
+        jabatan: true,
+        is_disposisi_recipient: true,
+      },
       orderBy: { nama_lengkap: 'asc' },
     });
   }

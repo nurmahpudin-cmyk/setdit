@@ -12,6 +12,7 @@ import {
   Card,
   Tag,
   Upload,
+  Switch,
   Table as TableAnt,
 } from 'antd';
 import {
@@ -29,6 +30,10 @@ import type { ColumnsType } from 'antd/es/table';
 import type { UploadProps } from 'antd';
 import * as XLSX from 'xlsx';
 import { pegawaiApi, Pegawai } from '../../api/pegawai';
+import { UNIT_DISPLAY, getUnitDisplay } from '../../api/disposisiSurat';
+
+// Opsi unit diambil dari mapping disposisi surat agar tidak terjadi perbedaan kode unit
+const UNIT_OPTIONS = Object.entries(UNIT_DISPLAY).map(([value, label]) => ({ label, value }));
 
 export default function PegawaiPage() {
   const [data, setData] = useState<Pegawai[]>([]);
@@ -79,6 +84,9 @@ export default function PegawaiPage() {
       nama_panggilan: record.nama_panggilan,
       nip: record.nip,
       nomor_wa: record.nomor_wa,
+      unit_code: record.unit_code,
+      jabatan: record.jabatan,
+      is_disposisi_recipient: record.is_disposisi_recipient,
       is_active: record.is_active,
     });
     setModalVisible(true);
@@ -237,6 +245,28 @@ export default function PegawaiPage() {
       ),
     },
     {
+      title: 'Unit',
+      dataIndex: 'unit_code',
+      key: 'unit_code',
+      width: 120,
+      render: (code) => (code ? <Tag color="cyan">{getUnitDisplay(code)}</Tag> : '-'),
+    },
+    {
+      title: 'Jabatan',
+      dataIndex: 'jabatan',
+      key: 'jabatan',
+      render: (text) => text || '-',
+    },
+    {
+      title: 'Notif Disposisi',
+      dataIndex: 'is_disposisi_recipient',
+      key: 'is_disposisi_recipient',
+      width: 130,
+      render: (val) => (
+        <Tag color={val ? 'blue' : 'default'}>{val ? 'Ya' : 'Tidak'}</Tag>
+      ),
+    },
+    {
       title: 'Status',
       dataIndex: 'is_active',
       key: 'is_active',
@@ -355,6 +385,27 @@ export default function PegawaiPage() {
 
           <Form.Item name="nomor_wa" label="Nomor WhatsApp">
             <Input prefix={<PhoneOutlined />} placeholder="08xxxxxxxxxx" />
+          </Form.Item>
+
+          <Form.Item name="unit_code" label="Unit Kerja">
+            <Select
+              placeholder="Pilih unit kerja"
+              allowClear
+              options={UNIT_OPTIONS}
+            />
+          </Form.Item>
+
+          <Form.Item name="jabatan" label="Jabatan / Keterangan">
+            <Input placeholder="Contoh: Sek Dir. PKPS" />
+          </Form.Item>
+
+          <Form.Item
+            name="is_disposisi_recipient"
+            label="Penerima Notifikasi Disposisi"
+            valuePropName="checked"
+            extra="Bila aktif, pegawai ini menerima notifikasi WhatsApp untuk setiap disposisi yang ditujukan ke unit kerjanya."
+          >
+            <Switch />
           </Form.Item>
 
           {editingId && (

@@ -14,6 +14,7 @@ router.post('/', disposisiSuratController.create.bind(disposisiSuratController))
 router.put('/:id', disposisiSuratController.update.bind(disposisiSuratController));
 router.delete('/:id', disposisiSuratController.delete.bind(disposisiSuratController));
 router.patch('/:id/status-tl', disposisiSuratController.updateStatusTL.bind(disposisiSuratController));
+router.post('/:id/notify', disposisiSuratController.sendNotification.bind(disposisiSuratController));
 
 // Access management routes
 router.get('/access/list', disposisiSuratController.getAccessList.bind(disposisiSuratController));

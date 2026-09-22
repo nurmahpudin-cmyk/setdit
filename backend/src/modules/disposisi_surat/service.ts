@@ -1,4 +1,5 @@
 import { prisma } from '../../config/database.js';
+import { formatTanggal } from '../../utils/tanggal.js';
 
 // ============================================
 // Constants
@@ -26,6 +27,7 @@ export const DISPOSISI_OPTIONS = [
 ] as const;
 
 export const TUJUAN_DISPOSISI_OPTIONS = [
+  'Ditjen PS',
   'Sesdit PS',
   'Dit. PKPS',
   'Dit. PKTHA',
@@ -34,6 +36,7 @@ export const TUJUAN_DISPOSISI_OPTIONS = [
 ] as const;
 
 export const UNIT_CODES: Record<string, string> = {
+  'Ditjen PS': 'DITJEN_PS',
   'Sesdit PS': 'SESDIT_PS',
   'Dit. PKPS': 'DIT_PKPS',
   'Dit. PKTHA': 'DIT_PKTHA',
@@ -41,24 +44,21 @@ export const UNIT_CODES: Record<string, string> = {
   'Dit. PPS': 'DIT_PPS',
 };
 
-export const PIC_OPTIONS = [
-  'Lucky',
-  'Nabila',
-  'Nurlia',
-  'Tommy',
-  'Dian',
-  'Ika',
-  'Rizma',
-] as const;
+// Reverse lookup: unit_code -> nama tampilan (untuk mengisi tujuan_disposisi otomatis)
+export const UNIT_DISPLAY_NAMES: Record<string, string> = Object.fromEntries(
+  Object.entries(UNIT_CODES).map(([label, code]) => [code, label])
+);
 
 export const JENIS_SURAT_OPTIONS = ['Undangan', 'Surat Dinas'] as const;
 
 // Jabatan codes for role-based access
 export const JABATAN_CODES = {
   TU_SETDITJEN: 'TU_SETDITJEN',
+  KASUBBAG_TU: 'KASUBBAG_TU',
   DIRJEN_PS: 'DIRJEN_PS',
   SETDITJEN_PS: 'SETDITJEN_PS',
   SEKDITJEN_PS: 'SEKDITJEN_PS',
+  SUPERADMIN: 'SUPERADMIN',
 } as const;
 
 // ============================================
@@ -66,22 +66,35 @@ export const JABATAN_CODES = {
 // ============================================
 
 export class DisposisiSuratService {
-  // Check if user has admin access (SETDITJEN/SESDIT/Sekditjen)
+  // Check if user has admin access - bisa lihat SEMUA disposisi tanpa batas unit.
+  // TU Setditjen & Kasubbag TU termasuk admin karena merekalah yang menginput
+  // setiap disposisi, jadi wajar bisa melihat semua yang mereka proses.
   async isAdmin(jabatanCodes: string[]): Promise<boolean> {
+    if (jabatanCodes.includes(JABATAN_CODES.SUPERADMIN)) return true;
+
     const adminCodes: string[] = [
       JABATAN_CODES.SETDITJEN_PS,
       JABATAN_CODES.SEKDITJEN_PS,
+      JABATAN_CODES.TU_SETDITJEN,
+      JABATAN_CODES.KASUBBAG_TU,
     ];
     return jabatanCodes.some((code) => adminCodes.includes(code));
   }
 
-  // Check if user can create (TU_SETDITJEN)
+  // Check if user can create (TU Setditjen / Kasubbag TU / Super Admin)
   async canCreate(jabatanCodes: string[]): Promise<boolean> {
-    return jabatanCodes.includes(JABATAN_CODES.TU_SETDITJEN);
+    if (jabatanCodes.includes(JABATAN_CODES.SUPERADMIN)) return true;
+
+    const createCodes: string[] = [
+      JABATAN_CODES.TU_SETDITJEN,
+      JABATAN_CODES.KASUBBAG_TU,
+    ];
+    return jabatanCodes.some((code) => createCodes.includes(code));
   }
 
-  // Check if user can dispose (DIRJEN_PS)
+  // Check if user can dispose (DIRJEN_PS / Super Admin)
   async canDispose(jabatanCodes: string[]): Promise<boolean> {
+    if (jabatanCodes.includes(JABATAN_CODES.SUPERADMIN)) return true;
     return jabatanCodes.includes(JABATAN_CODES.DIRJEN_PS);
   }
 
@@ -122,11 +135,19 @@ export class DisposisiSuratService {
     const isAdminUser = await this.isAdmin(jabatanCodes);
     const accessibleUnits = await this.getUserUnitCodes(userId, jabatanCodes);
 
+    // Non-admin tanpa akses unit sama sekali tidak boleh melihat baris apapun.
+    if (!isAdminUser && accessibleUnits.length === 0) {
+      return { items: [], pagination: { page, limit, total: 0 } };
+    }
+
     const where: any = {};
 
-    // Access control - if not admin, filter by accessible units
-    if (!isAdminUser && accessibleUnits.length > 0) {
-      where.unit_code = { in: accessibleUnits };
+    // Access control - non-admin hanya melihat disposisi yang SEMUA unit tujuannya
+    // ada dalam daftar unit yang jadi aksesnya. Prisma tidak punya operator "array
+    // baris adalah subset dari nilai" untuk String[], jadi kandidat diambil dulu
+    // pakai hasSome (irisan tidak kosong) lalu difilter presisi setelah query.
+    if (!isAdminUser) {
+      where.unit_code = { hasSome: accessibleUnits };
     }
 
     // Search filter
@@ -151,7 +172,7 @@ export class DisposisiSuratService {
 
     // Unit code filter
     if (query.unit_code) {
-      where.unit_code = query.unit_code;
+      where.unit_code = { has: query.unit_code };
     }
 
     // PIC filter
@@ -172,18 +193,39 @@ export class DisposisiSuratService {
       };
     }
 
-    const [items, total] = await Promise.all([
-      prisma.tr_disposisi_surat.findMany({
-        where,
-        include: {
-          creator: { select: { id: true, fullname: true } },
-        },
-        skip,
-        take: limit,
-        orderBy: { created_at: 'desc' },
-      }),
-      prisma.tr_disposisi_surat.count({ where }),
-    ]);
+    if (isAdminUser) {
+      const [items, total] = await Promise.all([
+        prisma.tr_disposisi_surat.findMany({
+          where,
+          include: {
+            creator: { select: { id: true, fullname: true } },
+          },
+          skip,
+          take: limit,
+          orderBy: { created_at: 'desc' },
+        }),
+        prisma.tr_disposisi_surat.count({ where }),
+      ]);
+
+      return { items, pagination: { page, limit, total } };
+    }
+
+    // Non-admin: subset check presisi tidak bisa dilakukan di SQL untuk String[],
+    // jadi ambil kandidat (irisan tidak kosong) lalu saring & paginasi di aplikasi.
+    const candidates = await prisma.tr_disposisi_surat.findMany({
+      where,
+      include: {
+        creator: { select: { id: true, fullname: true } },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    const filtered = candidates.filter((row) =>
+      row.unit_code.every((code) => accessibleUnits.includes(code))
+    );
+
+    const total = filtered.length;
+    const items = filtered.slice(skip, skip + limit);
 
     return { items, pagination: { page, limit, total } };
   }
@@ -203,6 +245,36 @@ export class DisposisiSuratService {
     return item;
   }
 
+  // Ambil semua penerima notifikasi disposisi untuk sebuah unit tujuan
+  async getRecipientsByUnit(unitCode: string) {
+    return prisma.mst_pegawai.findMany({
+      where: {
+        unit_code: unitCode,
+        is_disposisi_recipient: true,
+        is_active: true,
+      },
+      select: {
+        id: true,
+        nama_lengkap: true,
+        nama_panggilan: true,
+        nomor_wa: true,
+        jabatan: true,
+        unit_code: true,
+      },
+      orderBy: { nama_lengkap: 'asc' },
+    });
+  }
+
+  // Ambil penerima untuk beberapa unit sekaligus, dikelompokkan per unit
+  async getRecipientsByUnits(unitCodes: string[]) {
+    const grouped: { unitCode: string; unitName: string; recipients: Awaited<ReturnType<DisposisiSuratService['getRecipientsByUnit']>> }[] = [];
+    for (const unitCode of unitCodes) {
+      const recipients = await this.getRecipientsByUnit(unitCode);
+      grouped.push({ unitCode, unitName: UNIT_DISPLAY_NAMES[unitCode] || unitCode, recipients });
+    }
+    return grouped;
+  }
+
   async create(data: {
     nomor_surat?: string;
     tanggal_surat: string;
@@ -210,12 +282,26 @@ export class DisposisiSuratService {
     jenis_surat: string;
     disposisi: string;
     isi_disposisi?: string;
-    tujuan_disposisi: string;
-    unit_code: string;
+    unit_codes: string[];
     tanggal_disposisi: string;
     tanggal_deadline?: string;
-    pic: string;
   }, userId: number) {
+    if (!data.unit_codes || data.unit_codes.length === 0) {
+      throw new Error('Unit tujuan wajib dipilih minimal 1');
+    }
+
+    // PIC dan tujuan_disposisi diisi otomatis, digabung dari semua unit tujuan,
+    // sehingga user tidak perlu memilih orang lagi di form.
+    const grouped = await this.getRecipientsByUnits(data.unit_codes);
+    const picNames = grouped.flatMap((g) => g.recipients.map((r) => r.nama_lengkap)).join(', ');
+    const tujuanNames = data.unit_codes.map((code) => UNIT_DISPLAY_NAMES[code] || code).join(', ');
+
+    // Deadline default = tanggal disposisi + 14 hari kalender, kalau tidak diisi user.
+    const tanggalDisposisi = new Date(data.tanggal_disposisi);
+    const tanggalDeadline = data.tanggal_deadline
+      ? new Date(data.tanggal_deadline)
+      : new Date(tanggalDisposisi.getTime() + 14 * 24 * 60 * 60 * 1000);
+
     const item = await prisma.tr_disposisi_surat.create({
       data: {
         nomor_surat: data.nomor_surat || null,
@@ -224,17 +310,153 @@ export class DisposisiSuratService {
         jenis_surat: data.jenis_surat,
         disposisi: data.disposisi,
         isi_disposisi: data.isi_disposisi || null,
-        tujuan_disposisi: data.tujuan_disposisi,
-        unit_code: data.unit_code,
-        tanggal_disposisi: new Date(data.tanggal_disposisi),
-        tanggal_deadline: data.tanggal_deadline ? new Date(data.tanggal_deadline) : null,
-        pic: data.pic,
+        tujuan_disposisi: tujuanNames,
+        unit_code: data.unit_codes,
+        tanggal_disposisi: tanggalDisposisi,
+        tanggal_deadline: tanggalDeadline,
+        pic: picNames || '-',
         status_tl: 'PROSES_TINDAK_LANJUT',
         created_by: userId,
       },
     });
 
-    return item;
+    // Kegagalan notifikasi tidak boleh membatalkan penyimpanan disposisi.
+    let notification;
+    try {
+      notification = await this.sendDisposisiNotification(item.id, userId);
+    } catch (error: any) {
+      console.error('[DisposisiSurat] Gagal mengirim notifikasi:', error);
+      notification = {
+        sent: 0,
+        message: `Notifikasi gagal dikirim: ${error.message}`,
+        results: [],
+      };
+    }
+
+    // Disposisi berjenis Undangan otomatis dibuatkan entri di Jadwal Pimpinan,
+    // supaya tidak perlu diinput ulang manual. Lokasi & Sebagai diisi placeholder
+    // karena disposisi surat tidak menyimpan data itu - dilengkapi manual di
+    // halaman Jadwal Pimpinan.
+    let jadwalPimpinan: { id: number } | null = null;
+    if (data.jenis_surat === 'Undangan') {
+      try {
+        const { jadwalPimpinanService } = await import('../jadwal_pimpinan/service.js');
+        const jadwal = await jadwalPimpinanService.create({
+          acara: data.hal,
+          lokasi: '-',
+          sebagai: '-',
+          tanggal_awal: tanggalDisposisi,
+          tanggal_akhir: tanggalDisposisi,
+          catatan: `Dibuat otomatis dari Disposisi Surat${item.nomor_surat ? ` (${item.nomor_surat})` : ''}.`,
+          created_by: userId,
+        });
+        jadwalPimpinan = { id: jadwal.id };
+      } catch (error: any) {
+        console.error('[DisposisiSurat] Gagal membuat entri Jadwal Pimpinan otomatis:', error);
+      }
+    }
+
+    return { ...item, notification, jadwalPimpinan };
+  }
+
+  // Kirim notifikasi WhatsApp ke sekretaris semua unit tujuan.
+  // Mengikuti pola jadwal_pimpinan.sendNotificationToPendamping(), diperluas untuk banyak unit.
+  async sendDisposisiNotification(disposisiId: number, userId: number) {
+    const item = await prisma.tr_disposisi_surat.findUnique({
+      where: { id: disposisiId },
+    });
+
+    if (!item) {
+      throw new Error('Disposisi Surat tidak ditemukan');
+    }
+
+    const unitCodes = item.unit_code; // String[]
+    const grouped = await this.getRecipientsByUnits(unitCodes);
+    const unitResults: {
+      unitCode: string;
+      unitName: string;
+      results: { nama: string; phone: string; status: string }[];
+    }[] = [];
+
+    const totalRecipients = grouped.reduce((n, g) => n + g.recipients.length, 0);
+    if (totalRecipients === 0) {
+      return {
+        sent: 0,
+        total: 0,
+        message: `Tidak ada penerima notifikasi terdaftar untuk unit ${grouped.map((g) => g.unitName).join(', ')}`,
+        unitResults: grouped.map((g) => ({ unitCode: g.unitCode, unitName: g.unitName, results: [] })),
+      };
+    }
+
+    const session = await prisma.wa_sessions.findFirst({ where: { is_active: true } });
+
+    // Dynamic import supaya tidak terjadi circular import
+    const whatsappService = session ? (await import('../whatsapp/service.js')).whatsappService : null;
+
+    for (const group of grouped) {
+      const results: { nama: string; phone: string; status: string }[] = [];
+
+      for (const r of group.recipients) {
+        const namaSapaan = r.nama_panggilan || r.nama_lengkap;
+
+        if (!session || !whatsappService) {
+          results.push({
+            nama: r.nama_lengkap,
+            phone: r.nomor_wa || '-',
+            status: 'gagal - sesi WhatsApp tidak aktif',
+          });
+          continue;
+        }
+
+        if (!r.nomor_wa) {
+          results.push({
+            nama: r.nama_lengkap,
+            phone: '-',
+            status: 'gagal - nomor WA tidak ada',
+          });
+          continue;
+        }
+
+        let message = `Yth. ${namaSapaan},\n\n`;
+        message += `Terdapat disposisi baru untuk ${group.unitName}:\n\n`;
+        message += `📄 Nomor Surat : ${item.nomor_surat || '-'}\n`;
+        message += `📅 Tanggal Surat : ${formatTanggal(new Date(item.tanggal_surat))}\n`;
+        message += `📋 Perihal : ${item.hal}\n`;
+        message += `🏷️ Jenis : ${item.jenis_surat}\n`;
+        message += `✍️ Disposisi : ${item.disposisi}\n`;
+        message += `📝 Arahan : ${item.isi_disposisi || '-'}\n`;
+        message += `📆 Tanggal Dispo : ${formatTanggal(new Date(item.tanggal_disposisi))}\n`;
+        message += `⏰ Deadline : ${item.tanggal_deadline ? formatTanggal(new Date(item.tanggal_deadline)) : '-'}\n`;
+        message += `\nMohon segera ditindaklanjuti.\n\n`;
+        message += `Terima kasih.\n\n`;
+        message += `- SETDIT PS`;
+
+        try {
+          await whatsappService.sendMessage(session.id, r.nomor_wa, message, userId);
+          results.push({ nama: r.nama_lengkap, phone: r.nomor_wa, status: 'berhasil' });
+        } catch (error: any) {
+          results.push({
+            nama: r.nama_lengkap,
+            phone: r.nomor_wa,
+            status: `gagal - ${error.message}`,
+          });
+        }
+      }
+
+      unitResults.push({ unitCode: group.unitCode, unitName: group.unitName, results });
+    }
+
+    const allResults = unitResults.flatMap((u) => u.results);
+    const sent = allResults.filter((r) => r.status === 'berhasil').length;
+
+    return {
+      sent,
+      total: allResults.length,
+      message: session
+        ? `Notifikasi dikirim ke ${sent} dari ${allResults.length} penerima di ${grouped.length} unit`
+        : 'Tidak ada sesi WhatsApp yang aktif, notifikasi tidak terkirim',
+      unitResults,
+    };
   }
 
   async update(id: number, data: {
@@ -245,7 +467,7 @@ export class DisposisiSuratService {
     disposisi?: string;
     isi_disposisi?: string;
     tujuan_disposisi?: string;
-    unit_code?: string;
+    unit_codes?: string[];
     tanggal_disposisi?: string;
     tanggal_deadline?: string;
     pic?: string;
@@ -254,7 +476,8 @@ export class DisposisiSuratService {
     const existing = await prisma.tr_disposisi_surat.findUnique({ where: { id } });
     if (!existing) throw new Error('Disposisi Surat tidak ditemukan');
 
-    const updateData: any = { ...data };
+    const { unit_codes, ...rest } = data;
+    const updateData: any = { ...rest };
 
     if (data.tanggal_surat) {
       updateData.tanggal_surat = new Date(data.tanggal_surat);
@@ -264,6 +487,14 @@ export class DisposisiSuratService {
     }
     if (data.tanggal_deadline) {
       updateData.tanggal_deadline = new Date(data.tanggal_deadline);
+    }
+
+    // Kalau unit tujuan diubah, hitung ulang pic & tujuan_disposisi otomatis
+    if (unit_codes && unit_codes.length > 0) {
+      const grouped = await this.getRecipientsByUnits(unit_codes);
+      updateData.unit_code = unit_codes;
+      updateData.tujuan_disposisi = unit_codes.map((code) => UNIT_DISPLAY_NAMES[code] || code).join(', ');
+      updateData.pic = grouped.flatMap((g) => g.recipients.map((r) => r.nama_lengkap)).join(', ') || '-';
     }
 
     const updated = await prisma.tr_disposisi_surat.update({
@@ -298,33 +529,52 @@ export class DisposisiSuratService {
 
   async getStats(userId: number, jabatanCodes: string[]) {
     const isAdminUser = await this.isAdmin(jabatanCodes);
-    const accessibleUnits = await this.getUserUnitCodes(userId, jabatanCodes);
 
-    const where: any = {};
-
-    if (!isAdminUser && accessibleUnits.length > 0) {
-      where.unit_code = { in: accessibleUnits };
+    if (isAdminUser) {
+      const [total, proses, selesai] = await Promise.all([
+        prisma.tr_disposisi_surat.count(),
+        prisma.tr_disposisi_surat.count({ where: { status_tl: 'PROSES_TINDAK_LANJUT' } }),
+        prisma.tr_disposisi_surat.count({ where: { status_tl: 'TINDAK_LANJUT_SELESAI' } }),
+      ]);
+      return { total, proses, selesai };
     }
 
-    const [total, proses, selesai] = await Promise.all([
-      prisma.tr_disposisi_surat.count({ where }),
-      prisma.tr_disposisi_surat.count({
-        where: { ...where, status_tl: 'PROSES_TINDAK_LANJUT' },
-      }),
-      prisma.tr_disposisi_surat.count({
-        where: { ...where, status_tl: 'TINDAK_LANJUT_SELESAI' },
-      }),
-    ]);
+    // Non-admin: sama seperti findAll(), hanya hitung disposisi yang SEMUA unit
+    // tujuannya ada dalam akses user (subset check, tidak bisa dilakukan di SQL).
+    const accessibleUnits = await this.getUserUnitCodes(userId, jabatanCodes);
 
-    return { total, proses, selesai };
+    if (accessibleUnits.length === 0) {
+      return { total: 0, proses: 0, selesai: 0 };
+    }
+
+    const rows = await prisma.tr_disposisi_surat.findMany({
+      where: { unit_code: { hasSome: accessibleUnits } },
+      select: { unit_code: true, status_tl: true },
+    });
+
+    const visible = rows.filter((row) => row.unit_code.every((code) => accessibleUnits.includes(code)));
+
+    return {
+      total: visible.length,
+      proses: visible.filter((r) => r.status_tl === 'PROSES_TINDAK_LANJUT').length,
+      selesai: visible.filter((r) => r.status_tl === 'TINDAK_LANJUT_SELESAI').length,
+    };
   }
 
   async getDropdownOptions() {
+    // Opsi PIC diambil dari daftar penerima disposisi yang terdaftar,
+    // dipakai hanya untuk filter tabel (form tidak lagi memilih PIC manual).
+    const recipients = await prisma.mst_pegawai.findMany({
+      where: { is_disposisi_recipient: true, is_active: true },
+      select: { nama_lengkap: true },
+      orderBy: { nama_lengkap: 'asc' },
+    });
+
     return {
       disposisi: DISPOSISI_OPTIONS,
       tujuan_disposisi: TUJUAN_DISPOSISI_OPTIONS,
       unit_codes: Object.keys(UNIT_CODES).map((k) => ({ label: k, value: UNIT_CODES[k] })),
-      pic: PIC_OPTIONS,
+      pic: recipients.map((r) => r.nama_lengkap),
       jenis_surat: JENIS_SURAT_OPTIONS,
     };
   }

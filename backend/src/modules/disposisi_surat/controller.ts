@@ -17,14 +17,19 @@ const createSchema = z.object({
   }),
   disposisi: z.string().min(1, 'Disposisi wajib diisi'),
   isi_disposisi: z.string().optional(),
-  tujuan_disposisi: z.string().min(1, 'Tujuan disposisi wajib diisi'),
-  unit_code: z.string().min(1, 'Unit code wajib diisi'),
+  unit_codes: z.array(z.string().min(1)).min(1, 'Unit tujuan wajib dipilih minimal 1'),
   tanggal_disposisi: z.string().min(1, 'Tanggal disposisi wajib diisi'),
   tanggal_deadline: z.string().optional(),
-  pic: z.string().min(1, 'PIC wajib diisi'),
 });
 
-const updateSchema = createSchema.partial();
+// tujuan_disposisi & pic diisi otomatis oleh server dari unit_codes,
+// tapi tetap boleh diubah manual lewat update.
+const updateExtraSchema = z.object({
+  tujuan_disposisi: z.string().min(1).optional(),
+  pic: z.string().min(1).optional(),
+});
+
+const updateSchema = createSchema.partial().merge(updateExtraSchema);
 
 const updateStatusTLSchema = z.object({
   status_tl: z.enum(['PROSES_TINDAK_LANJUT', 'TINDAK_LANJUT_SELESAI'], {
@@ -133,6 +138,30 @@ export class DisposisiSuratController {
       } else {
         apiError(res, error.message, 400);
       }
+    }
+  }
+
+  // Kirim ulang notifikasi WA, mis. bila sesi WhatsApp sedang mati saat disposisi dibuat
+  async sendNotification(req: Request, res: Response) {
+    try {
+      const id = String(req.params.id);
+      const authReq = req as AuthRequest;
+      const userId = authReq.user!.id;
+      const jabatanCodes = authReq.user!.jabatan_codes || [];
+
+      const canCreate = await disposisiSuratService.canCreate(jabatanCodes);
+      const canDispose = await disposisiSuratService.canDispose(jabatanCodes);
+      const isAdmin = await disposisiSuratService.isAdmin(jabatanCodes);
+
+      if (!canCreate && !canDispose && !isAdmin) {
+        apiError(res, 'Anda tidak memiliki akses untuk mengirim notifikasi disposisi', 403);
+        return;
+      }
+
+      const result = await disposisiSuratService.sendDisposisiNotification(parseInt(id), userId);
+      apiResponse(res, result, result.message);
+    } catch (error: any) {
+      apiError(res, error.message, 400);
     }
   }
 

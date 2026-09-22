@@ -9,6 +9,9 @@ const createSchema = z.object({
   nama_panggilan: z.string().optional(),
   nip: z.string().min(1, 'NIP harus diisi'),
   nomor_wa: z.string().optional(),
+  unit_code: z.string().optional(),
+  jabatan: z.string().optional(),
+  is_disposisi_recipient: z.boolean().optional(),
 });
 
 const updateSchema = z.object({
@@ -16,6 +19,9 @@ const updateSchema = z.object({
   nama_panggilan: z.string().optional().nullable(),
   nip: z.string().min(1).optional(),
   nomor_wa: z.string().optional().nullable(),
+  unit_code: z.string().optional().nullable(),
+  jabatan: z.string().optional().nullable(),
+  is_disposisi_recipient: z.boolean().optional(),
   is_active: z.boolean().optional(),
 });
 

@@ -6,6 +6,9 @@ export interface Pegawai {
   nama_panggilan: string | null;
   nip: string;
   nomor_wa: string | null;
+  unit_code: string | null;
+  jabatan: string | null;
+  is_disposisi_recipient: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -17,6 +20,9 @@ export interface CreatePegawaiPayload {
   nama_panggilan?: string;
   nip: string;
   nomor_wa?: string;
+  unit_code?: string;
+  jabatan?: string;
+  is_disposisi_recipient?: boolean;
 }
 
 export interface UpdatePegawaiPayload extends Partial<CreatePegawaiPayload> {

@@ -10,7 +10,7 @@ export interface DisposisiSurat {
   disposisi: string;
   isi_disposisi?: string;
   tujuan_disposisi: string;
-  unit_code: string;
+  unit_code: string[];
   tanggal_disposisi: string;
   tanggal_deadline?: string;
   pic: string;
@@ -19,6 +19,17 @@ export interface DisposisiSurat {
   created_at: string;
   updated_at: string;
   creator?: { id: number; fullname: string };
+}
+
+export interface NotificationResult {
+  sent: number;
+  total: number;
+  message: string;
+  unitResults: {
+    unitCode: string;
+    unitName: string;
+    results: { nama: string; phone: string; status: string }[];
+  }[];
 }
 
 export interface DisposisiSuratStats {
@@ -65,6 +76,7 @@ export const disposisiSuratApi = {
     return api.get(`/disposisi-surat/${id}`);
   },
 
+  // tujuan_disposisi & pic diisi otomatis oleh server dari unit_codes
   create: (data: {
     nomor_surat?: string;
     tanggal_surat: string;
@@ -72,11 +84,9 @@ export const disposisiSuratApi = {
     jenis_surat: string;
     disposisi: string;
     isi_disposisi?: string;
-    tujuan_disposisi: string;
-    unit_code: string;
+    unit_codes: string[];
     tanggal_disposisi: string;
     tanggal_deadline?: string;
-    pic: string;
   }) => {
     return api.post('/disposisi-surat', data);
   },
@@ -89,7 +99,7 @@ export const disposisiSuratApi = {
     disposisi?: string;
     isi_disposisi?: string;
     tujuan_disposisi?: string;
-    unit_code?: string;
+    unit_codes?: string[];
     tanggal_disposisi?: string;
     tanggal_deadline?: string;
     pic?: string;
@@ -112,6 +122,11 @@ export const disposisiSuratApi = {
 
   getDropdownOptions: () => {
     return api.get('/disposisi-surat/options');
+  },
+
+  // Kirim ulang notifikasi WA (mis. bila sesi WhatsApp mati saat disposisi dibuat)
+  resendNotification: (id: number) => {
+    return api.post(`/disposisi-surat/${id}/notify`);
   },
 
   // Access management
@@ -150,6 +165,7 @@ export const STATUS_TL_COLORS: Record<string, string> = {
 
 // Unit display mapping
 export const UNIT_DISPLAY: Record<string, string> = {
+  DITJEN_PS: 'Ditjen PS',
   SESDIT_PS: 'Sesdit PS',
   DIT_PKPS: 'Dit. PKPS',
   DIT_PKTHA: 'Dit. PKTHA',

@@ -379,12 +379,16 @@ model mst_pegawai {
   nama_panggilan String?
   nip            String   @unique
   nomor_wa       String?
+  unit_code      String?  // DITJEN_PS | SESDIT_PS | DIT_PKPS | DIT_PKTHA | DIT_PUPS | DIT_PPS
+  jabatan        String?  // Keterangan jabatan, mis. "Sek Dir. PKPS"
+  is_disposisi_recipient Boolean @default(false) // Penerima notifikasi disposisi surat
   is_active      Boolean  @default(true)
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
 
   jadwal_pendamping tr_jadwal_pendamping_pegawai[]
 
+  @@index([unit_code])
   @@map("mst_pegawai")
 }
 
@@ -753,7 +757,7 @@ model tr_disposisi_surat {
   disposisi           String                   // 18 options
   isi_disposisi       String?                  @db.Text @map("isi_disposisi")
   tujuan_disposisi    String                   @map("tujuan_disposisi") // Sesdit PS, Dit. PKPS, dll
-  unit_code          String                   @map("unit_code") // SESDIT_PS, DIT_PKPS, dll
+  unit_code          String[]                 @map("unit_code") // array kode unit, mis. [SESDIT_PS, DIT_PKPS]
   tanggal_disposisi   DateTime                 @map("tanggal_disposisi")
   tanggal_deadline    DateTime?                @map("tanggal_deadline")
   pic                String                   // Lucky, Nabila, Nurlia, Tommy, Dian, Ika, Rizma

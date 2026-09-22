@@ -1,4 +1,5 @@
 import { prisma } from '../../config/database.js';
+import { BULAN_NAMES, formatHari, formatTanggalLengkap } from '../../utils/tanggal.js';
 
 export class JadwalPimpinanService {
   async findAll(query: {
@@ -266,21 +267,9 @@ export class JadwalPimpinanService {
       throw new Error('Tidak ada sesi WhatsApp yang aktif');
     }
 
-    const hariNames = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-    const bulanNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-
-    const formatTglFull = (d: Date) => {
-      const hari = hariNames[d.getDay()];
-      const tanggal = d.getDate();
-      const bulan = bulanNames[d.getMonth()];
-      const tahun = d.getFullYear();
-      return `${hari}, ${tanggal} ${bulan} ${tahun}`;
-    };
-
-    const formatTglShort = (d: Date) => {
-      const hari = hariNames[d.getDay()];
-      return hari;
-    };
+    const bulanNames = BULAN_NAMES;
+    const formatTglFull = formatTanggalLengkap;
+    const formatTglShort = formatHari;
 
     const results: { nama: string; phone: string; status: string }[] = [];
 
