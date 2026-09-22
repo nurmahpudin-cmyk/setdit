@@ -8,3 +8,8 @@ frontend/dist/*
 backend/uploads/*
 backend/dist/*
 tmp-nginx/*
+# Postgres data (bind mount)
+postgres-data/
+
+# DB dump (transfer manual ke server, jangan commit)
+db-init/*.sql

@@ -1,4 +1,26 @@
 services:
+  setdit-db:
+    image: postgres:15-alpine
+    container_name: setdit-db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=PKPS@2020
+      - POSTGRES_DB=setdit
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+      # Dijalankan otomatis HANYA saat postgres-data masih kosong (init pertama)
+      - ./db-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d setdit"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - setdit-network
+
   setdit-backend:
     build:
       context: ./backend
@@ -9,7 +31,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=5100
-      - DATABASE_URL=postgresql://postgres:PKPS@2020@host.docker.internal:5432/setdit?schema=public
+      - DATABASE_URL=postgresql://postgres:PKPS%402020@setdit-db:5432/setdit?schema=public
       - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-your-super-secret-refresh-key-change-in-production}
       - ADMIN_EMAIL=admin@setdit.local
@@ -22,6 +44,9 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
+    depends_on:
+      setdit-db:
+        condition: service_healthy
     networks:
       - setdit-network
 
@@ -33,7 +58,7 @@ services:
         - VITE_API_URL=/api
     container_name: setdit-frontend
     ports:
-      - "5101:5101"
+      - "80:5101"
     restart: unless-stopped
     depends_on:
       - setdit-backend
