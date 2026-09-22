@@ -13,3 +13,6 @@ postgres-data/
 
 # DB dump (transfer manual ke server, jangan commit)
 db-init/*.sql
+
+# TLS cert (self-signed, generate ulang per environment / ganti dgn Lets Encrypt di server asli)
+frontend/certs/

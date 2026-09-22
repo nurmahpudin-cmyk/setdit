@@ -59,6 +59,9 @@ services:
     container_name: setdit-frontend
     ports:
       - "80:5101"
+      - "443:5443"
+    volumes:
+      - ./frontend/certs:/etc/nginx/certs:ro
     restart: unless-stopped
     depends_on:
       - setdit-backend
