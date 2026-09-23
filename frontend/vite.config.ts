@@ -17,6 +17,10 @@ function figmaAssetResolver() {
 }
 
 export default defineConfig({
+  // Diakses lewat proxy di sub-path (mis. https://.../kawalps/), jadi semua
+  // asset harus dibuat relatif ke path itu, bukan ke root domain.
+  // Override lewat env VITE_BASE_PATH kalau perlu; default '/' untuk dev lokal.
+  base: process.env.VITE_BASE_PATH || '/',
   plugins: [
     figmaAssetResolver(),
     // The React and Tailwind plugins are both required for Make, even if

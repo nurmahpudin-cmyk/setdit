@@ -16,6 +16,11 @@ COPY . .
 ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
 
+# Sub-path tempat app diakses di belakang reverse proxy (mis. /kawalps/).
+# Kosongkan (default) kalau diakses langsung di root domain.
+ARG VITE_BASE_PATH=/
+ENV VITE_BASE_PATH=$VITE_BASE_PATH
+
 RUN npm run build
 
 # Production stage
