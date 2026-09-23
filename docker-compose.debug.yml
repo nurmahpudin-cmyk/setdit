@@ -1,0 +1,31 @@
+# Compose KHUSUS DEBUG - bukan untuk produksi.
+#
+# Tujuan: pastikan jalur proxy pusat -> VM -> port 80/443 beres,
+# terlepas dari kerumitan app setdit (db/backend/frontend).
+#
+# Pakai file INI SENDIRIAN (bukan bareng docker-compose.yml), supaya
+# port 80/443 bebas dipakai container debug ini tanpa bentrok dengan
+# setdit-frontend.
+#
+# Cara pakai di server:
+#   1. Matikan stack setdit dulu (WAJIB, supaya port 80/443 kosong):
+#        docker compose down
+#   2. Nyalakan container debug:
+#        docker compose -f docker-compose.debug.yml up -d --build
+#   3. Buka https://gokups.hutsos.kehutanan.go.id/trackingsk/ (atau
+#      prefix apa pun yang proxy pusat pakai sekarang) - kalau muncul
+#      halaman phpinfo(), berarti jalur proxy -> VM -> port 80 SEHAT,
+#      dan masalah sebelumnya (404 dari nginx pusat) memang murni di
+#      sisi proxy, bukan VM/network kita.
+#   4. Setelah selesai, matikan lagi & kembalikan stack setdit:
+#        docker compose -f docker-compose.debug.yml down
+#        docker compose up -d
+
+services:
+  debug-phpinfo:
+    build:
+      context: ./debug-phpinfo
+    container_name: debug-phpinfo
+    ports:
+      - "80:80"
+    restart: "no"
