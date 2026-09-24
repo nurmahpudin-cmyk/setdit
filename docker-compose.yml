@@ -55,8 +55,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - VITE_API_URL=/trackingsk/api
-        - VITE_BASE_PATH=/trackingsk/
+        - VITE_API_URL=/api
     container_name: setdit-frontend
     ports:
       - "80:5101"
