@@ -49,7 +49,7 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 app.use(cors({
-  origin: ['http://localhost:5101', 'http://localhost:5100'],
+  origin: config.cors.allowedOrigins,
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));

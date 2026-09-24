@@ -9,6 +9,15 @@ export const config = {
     url: process.env.DATABASE_URL || '',
   },
 
+  cors: {
+    // Daftar origin dipisah koma, mis: "https://gokups.hutsos.kehutanan.go.id,http://172.16.3.178"
+    // Default cocok untuk dev lokal (Vite di 5101, backend sendiri di 5100).
+    allowedOrigins: (process.env.CORS_ALLOWED_ORIGINS || 'http://localhost:5101,http://localhost:5100')
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
+  },
+
   jwt: {
     secret: process.env.JWT_SECRET || 'default-secret-change-me',
     refreshSecret: process.env.JWT_REFRESH_SECRET || 'default-refresh-secret-change-me',

@@ -1,0 +1,35 @@
+# Versi tanpa nginx/reverse-proxy - murni static file server.
+# Backend HARUS diakses langsung dari browser (http://<host>:5100/api/...),
+# jadi backend WAJIB expose CORS untuk origin frontend ini
+# (lihat CORS_ALLOWED_ORIGINS di docker-compose.yml).
+
+# Build stage
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+
+# Panggil backend LANGSUNG (bukan /api relatif) - tidak ada proxy yang
+# menyatukan origin frontend & backend lagi.
+# Contoh: http://172.16.3.178:5100/api atau https://gokups.hutsos.kehutanan.go.id:5100/api
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
+ARG VITE_BASE_PATH=/
+ENV VITE_BASE_PATH=$VITE_BASE_PATH
+
+RUN npm run build
+
+# Production stage - static file server ringan, tanpa proxy sama sekali
+FROM node:20-alpine
+RUN npm install -g serve
+WORKDIR /app
+COPY --from=builder /app/dist ./dist
+
+EXPOSE 80
+
+CMD ["serve", "-s", "dist", "-l", "80"]

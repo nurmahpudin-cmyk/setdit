@@ -1,0 +1,90 @@
+# Alternatif TANPA nginx/reverse-proxy.
+#
+# Beda dari docker-compose.yml:
+#   - setdit-frontend pakai Dockerfile.noproxy (static server 'serve', bukan nginx)
+#   - Tidak ada reverse proxy /api atau /uploads sama sekali
+#   - Browser panggil backend LANGSUNG ke port 5100
+#   - Backend WAJIB tahu origin frontend lewat CORS_ALLOWED_ORIGINS
+#   - Tidak ada HTTPS/443 di sini (serve tidak handle TLS) - frontend HTTP polos di 80
+#
+# GANTI <PUBLIC_HOST> di bawah dengan domain/IP yang dipakai browser mengakses
+# (mis. gokups.hutsos.kehutanan.go.id atau 172.16.3.178), lalu:
+#   docker compose -f docker-compose.noproxy.yml up -d --build
+
+services:
+  setdit-db:
+    image: postgres:15-alpine
+    container_name: setdit-db
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=PKPS@2020
+      - POSTGRES_DB=setdit
+    volumes:
+      - ./data-trace:/var/lib/postgresql/data
+      - ./db-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d setdit"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - setdit-network
+
+  setdit-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: setdit-backend
+    ports:
+      - "5100:5100"
+    environment:
+      - NODE_ENV=production
+      - PORT=5100
+      - DATABASE_URL=postgresql://postgres:PKPS%402020@setdit-db:5432/setdit?schema=public
+      - JWT_SECRET=${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-your-super-secret-refresh-key-change-in-production}
+      - ADMIN_EMAIL=admin@setdit.local
+      - ADMIN_PASSWORD=Admin123!
+      # Origin frontend yang boleh panggil API ini. Isi sesuai cara browser
+      # mengakses frontend (protokol + host + port persis).
+      - CORS_ALLOWED_ORIGINS=http://<PUBLIC_HOST>,http://<PUBLIC_HOST>:80
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - setdit-wa-auth:/app/.wwebjs_auth
+      - setdit-wa-cache:/app/.wwebjs_cache
+    shm_size: '1gb'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    depends_on:
+      setdit-db:
+        condition: service_healthy
+    networks:
+      - setdit-network
+
+  setdit-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.noproxy
+      args:
+        # Backend dipanggil LANGSUNG, bukan lewat proxy relatif /api.
+        - VITE_API_URL=http://<PUBLIC_HOST>:5100/api
+    container_name: setdit-frontend
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    depends_on:
+      - setdit-backend
+    networks:
+      - setdit-network
+
+networks:
+  setdit-network:
+    driver: bridge
+
+volumes:
+  setdit-wa-auth:
+  setdit-wa-cache:
